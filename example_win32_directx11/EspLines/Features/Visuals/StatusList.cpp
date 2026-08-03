@@ -14,6 +14,7 @@ void StatusList::Render()
     FuncaoStatus funcoes[] = {
         { g_Globals.AimBot.MemoryAim,              "AIMBOT MEMORY" },
         { g_Globals.AimBot.RageAim,                "AIMBOT RAGE" },
+        { g_Globals.Silent.Enabled,                "AIMBOT SILENT" },
     };
 
     const int numFuncoes = sizeof(funcoes) / sizeof(funcoes[0]);

@@ -683,14 +683,14 @@ static void BoneSelector(ImDrawList* dl, const char* id, const char* label, Conf
 }
 
 // ============================================================================
-// PESTAÑA AIMBOT: dos modos (MEMORY AIM y RAGE AIM) en columnas
+// PESTAÑA AIMBOT: tres modos (MEMORY, SILENT y RAGE AIM) en columnas
 // ============================================================================
 static void AimbotTab(ImDrawList* dl, float pulse)
 {
 	(void)dl;
 	float availW = ImGui::GetContentRegionAvail().x;
 	const float colGap = 16.0f;
-	const float colW = (availW - colGap) / 2.0f;
+	const float colW = (availW - colGap * 2.0f) / 3.0f;
 	const float colH = ImGui::GetContentRegionAvail().y;
 
 	// ==================== COLUMNA IZQUIERDA: MEMORY AIM ====================
@@ -716,6 +716,20 @@ static void AimbotTab(ImDrawList* dl, float pulse)
 			&g_Globals.AimBot.IgnoreKnocked, COL_GREEN, pulse);
 		RowToggle(ldl, "##AimMaBt", "Ignorar Bots", "No aimear a bots",
 			&g_Globals.AimBot.IgnoreBots, COL_GREEN, pulse);
+	}
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+
+	// ==================== COLUMNA CENTRAL: SILENT AIM ====================
+	ImGui::BeginChild("##AimMid", ImVec2(colW, colH), false, ImGuiWindowFlags_NoBackground);
+	{
+		ImDrawList* mdl = ImGui::GetWindowDrawList();
+
+		ModeCardHeader(mdl, "SILENT AIM", "Redirige el proyectil al target", "\uF1D8",
+			&g_Globals.Silent.Enabled, pulse, colW);
+		RowToggle(mdl, "##AimSi", "Silent Aim", "Activo manteniendo el click izquierdo",
+			&g_Globals.Silent.Enabled, COL_GREEN, pulse);
 	}
 	ImGui::EndChild();
 

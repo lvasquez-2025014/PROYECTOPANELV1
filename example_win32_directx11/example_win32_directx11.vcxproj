@@ -178,6 +178,7 @@
     <ClInclude Include="Auth\StringObfuscator.hpp" />
     <ClInclude Include="EspLines\Aimbot\MemoryAim.hpp" />
     <ClInclude Include="EspLines\Aimbot\RageAimbot.hpp" />
+    <ClInclude Include="EspLines\Aimbot\SilentAim.hpp" />
     <ClInclude Include="EspLines\Data\Data.hpp" />
     <ClInclude Include="EspLines\Data\SkeletonDrawer.hpp" />
     <ClInclude Include="EspLines\Exploits\TeleKill.hpp" />
@@ -301,6 +302,7 @@
   <ItemGroup>
     <ClCompile Include="EspLines\Aimbot\MemoryAim.cpp" />
     <ClCompile Include="EspLines\Aimbot\RageAimbot.cpp" />
+    <ClCompile Include="EspLines\Aimbot\SilentAim.cpp" />
     <ClCompile Include="EspLines\Data\Data.cpp" />
     <ClCompile Include="EspLines\Exploits\TeleKill.cpp" />
     <ClCompile Include="EspLines\Features\Visuals\Minimap.cpp" />

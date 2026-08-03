@@ -5,6 +5,7 @@
 #include <EspLines/Math/TMatrix.hpp>
 #include <EspLines/Aimbot/MemoryAim.hpp>
 #include <EspLines/Aimbot/RageAimbot.hpp>
+#include <EspLines/Aimbot/SilentAim.hpp>
 #define NOMINMAX
 #include <Windows.h>
 #undef min
@@ -56,8 +57,11 @@ void Data::Work() {
     ProcessEntities(ctx);
 
     // --- 6. Actualizar los aimbots con la lista de entidades ---
+    // El hilo del silent aim arranca aqui (lazy), con la memoria verificada.
+    Aim::SilentAimStart();
     Aim::MemoryAimWork();
     Aim::RageAimbot::Aimbot();
+    Aim::SilentAimUpdate();
 }
 
 // ============================================================================

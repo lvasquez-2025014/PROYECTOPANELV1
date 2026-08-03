@@ -96,6 +96,11 @@ public:
     //static inline uintptr_t GhostMode = 0x38; comentado hasta encontrar una solcion 
     static inline uintptr_t PhysxData = 0x139C;
 
+    // === SILENT AIM ===
+    static inline uintptr_t LastAimingInfoFromWeapon = 0x978;   // puntero a la info de apuntado (localPlayer)
+    static inline uintptr_t StartPosition = 0x38;               // posicion de salida del proyectil (aimingInfo)
+    static inline uintptr_t RayDir = 0x2C;                      // direccion del rayo a escribir (aimingInfo)
+
     class Bones {
     public:
         static inline uintptr_t Head = 0x458;

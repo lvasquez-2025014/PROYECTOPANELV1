@@ -68,8 +68,9 @@ public:
     }
     AimBot;
 
-    // Solo se conserva el hitbox usado por TeleKill
+    // HitBox lo usa TeleKill; Enabled es el switch del silent aim
     struct Silent {
+        bool Enabled = false;
         Config::HitBox HitBox = Config::HitBox::Head;
     }
     Silent;

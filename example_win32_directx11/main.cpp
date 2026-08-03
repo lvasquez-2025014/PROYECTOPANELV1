@@ -22,6 +22,7 @@
 #include <EspLines/Data/Data.hpp>
 #include <EspLines/Memory/Memory.hpp>
 #include <EspLines/Offsets.hpp>
+#include <EspLines/Aimbot/SilentAim.hpp>
 #include <EspLines/Features/Visuals/Visual.hpp>
 #include <src/adb/adb_utils.hpp>
 
@@ -382,6 +383,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 		g_SystemTimerPeriod = false;
 	}
 
+	// Detener el hilo del silent aim antes de descargar la DLL
+	Aim::SilentAimStop();
+
 	closecmd();
     return 0;
 }
@@ -395,6 +399,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         break;
     case DLL_PROCESS_DETACH:
 		g_Globals.General.ShutDown = true;
+		// Detener el hilo del silent aim (idempotente): sin hilos vivos
+		// cuando la DLL se desmapea.
+		Aim::SilentAimStop();
         break;
     }
     return TRUE;
