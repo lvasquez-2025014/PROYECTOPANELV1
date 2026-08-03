@@ -62,37 +62,26 @@ public:
 
         // ---- TARGET del Memory Aim (hueso a apuntar) ----
         Config::Bone TargetBone = Config::Bone::Head;
+
+        // Filtro opcional: solo aimear a enemigos (por defecto apunta a cualquier entidad)
+        bool OnlyEnemies = false;
     }
     AimBot;
 
+    // Solo se conserva el hitbox usado por TeleKill
     struct Silent {
-        bool Enabled;
-        bool IgnoreKnocked;
-        bool IgnoreBots;
-        int HeadRate = 0;
-        int ChestRate = 2;
-        float Fillcolor[4] = { 0.f, 0.f, 0.f, 0.2f };
-        int SilentBind = 0;
-        int MaxDistance = 250;
-        int UpdateInterval = 10;
         Config::HitBox HitBox = Config::HitBox::Head;
     }
     Silent;
-
     struct Exploits {
        
-      
+
         int TeleKillBind = 0;
        
-
-        
 
         //INICIO AIMBOT DO PAI 
         bool MemoryAim = false;
         //FIM AIMBOT DO PAI
-
-       
-
 
         bool TeleKill = false;
         int TeleKillKey = 0; // Começa como "None"

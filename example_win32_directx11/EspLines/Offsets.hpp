@@ -96,12 +96,6 @@ public:
     //static inline uintptr_t GhostMode = 0x38; comentado hasta encontrar una solcion 
     static inline uintptr_t PhysxData = 0x139C;
 
-    // === SILENT CURVA OFFSETS ===
-    static inline uintptr_t sAim1 = 0x540;
-    static inline uintptr_t sAim2 = 0x978;
-    static inline uintptr_t sAim3 = 0x38;
-    static inline uintptr_t sAim4 = 0x2C;
-
     class Bones {
     public:
         static inline uintptr_t Head = 0x458;

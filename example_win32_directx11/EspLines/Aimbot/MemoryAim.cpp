@@ -13,11 +13,6 @@
 #include <cmath>
 
 namespace Aim {
-	// Variáveis de estado para o humanizador (mantidas para segurança)
-	static float lastClickTime = 0.0f;
-	static float clickStartTime = 0.0f;
-	static bool isClicking = false;
-
 	void MemoryAimWork() {
 		if (!g_Globals.AimBot.MemoryAim) return;
 
@@ -26,46 +21,9 @@ namespace Aim {
 			return;
 		}
 
-		// === HUMANIZAÇÃO DO CLIQUE (Para não ser detectado) ===
+		// === ATIVAÇÃO INSTANTÂNEA (sin humanización, sin delays) ===
 		bool isButtonPressed = (GetAsyncKeyState(g_Globals.AimBot.AimbotBind) & 0x8000) != 0;
-		float currentTime = (float)GetTickCount64() / 1000.0f;
-
-		if (isButtonPressed) {
-			if (!isClicking) {
-				// Debounce: ignorar cliques muito rápidos (anti-spam)
-				float timeSinceLastClick = currentTime - lastClickTime;
-				if (timeSinceLastClick < 0.050f) {
-					return;
-				}
-
-				clickStartTime = currentTime;
-				isClicking = true;
-			}
-
-			// Delay inicial antes de ativar a mira (simula reação humana)
-			if (currentTime - clickStartTime < 0.12f) {
-				return;
-			}
-
-			// Micro-variação aleatória (Jitter)
-			float humanDelay = 0.015f + (float)(rand() % 25) / 1000.0f;
-			if (currentTime - clickStartTime < humanDelay) {
-				return;
-			}
-
-			// Timeout de segurança (para de mirar se segurar por muito tempo)
-			if (currentTime - clickStartTime > 2.0f) {
-				return;
-			}
-		}
-		else {
-			if (isClicking) {
-				lastClickTime = currentTime;
-				isClicking = false;
-			}
-			// Se não estiver clicando, não faz nada (retorna cedo)
-			return;
-		}
+		if (!isButtonPressed) return;
 
 		// === SELEÇÃO DE ALVO (Closest to Crosshair) ===
 		Player* bestTarget = nullptr;
@@ -75,8 +33,11 @@ namespace Aim {
 		for (auto& pair : g_Globals.EspConfig.Entities) {
 			Player* entity = &pair.second;
 
-			// Filtros básicos
-			if (!entity->IsKnown || entity->IsDead || (g_Globals.AimBot.IgnoreKnocked && entity->IsKnocked)) continue;
+			// Filtros configurados: solo actuan si el usuario los activa.
+			// Por defecto el aimbot funciona con CUALQUIER entidad viva.
+			if (entity->IsDead || (g_Globals.AimBot.IgnoreKnocked && entity->IsKnocked)) continue;
+			if (g_Globals.AimBot.IgnoreBots && entity->IsBot) continue;
+			if (g_Globals.AimBot.OnlyEnemies && entity->IsTeam == Player::Bool3::True) continue;
 			if (entity->Head == Vector3::Zero()) continue;
 
 			// Projeção na tela
@@ -122,9 +83,9 @@ namespace Aim {
 			// Remove-se qualquer bias ou suavização interna da função GetRotationToLocation
 			Quaternion targetRotation = AimB::GetRotationToLocation(aimPosition, 0.0f, g_Globals.EspConfig.MainCamera);
 
-			// 3. Escrever diretamente na memória do jogador
+			// 3. Escritura DIRETA e INSTANTÂNEA na memória do jogador
 			// Sem Slerp, sem interpolação, sem predição de velocidade.
-			// A mira vai instantaneamente para onde o cálculo mandou.
+			// Corre cada frame mientras la tecla esta pulsada: mira fijada al target.
 			Mem.Write<Quaternion>(g_Globals.EspConfig.LocalPlayer + Offsets::AimRotation, targetRotation);
 		}
 	}

@@ -254,16 +254,18 @@ namespace Cheat {
 							g_Globals.AimBot.Fillcolor[3]
 						);
 
+						const float fovRadius = (float)g_Globals.AimBot.DistanceAim;
+
 						ImGui::GetBackgroundDrawList()->AddCircleFilled(
 							ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y / 2),
-							g_Globals.AimBot.Fov,
+							fovRadius,
 							Fillcolor,
 							360
 						);
 
 						ImGui::GetBackgroundDrawList()->AddCircle(
 							ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y / 2),
-							g_Globals.AimBot.Fov,
+							fovRadius,
 							OutlineColor,
 							360
 						);

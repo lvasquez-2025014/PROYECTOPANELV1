@@ -689,16 +689,9 @@ static void AimbotTab(ImDrawList* dl, float pulse)
 {
 	(void)dl;
 	float availW = ImGui::GetContentRegionAvail().x;
-	const float colGap = 32.0f;
-	const float colW = (availW - colGap) * 0.5f;
-
-	// ==================== FOV COMPARTIDO (sirve para ambos aimbots) ====================
-	SectionTitle(dl, "FOV");
-	SliderRow(dl, "##AimFov", "Radio del aimbot", "%d px",
-		&g_Globals.AimBot.DistanceAim, 50, 500, COL_GREEN, pulse);
-	ImGui::Dummy(ImVec2(0, 8));
-
-	float colH = ImGui::GetContentRegionAvail().y;
+	const float colGap = 16.0f;
+	const float colW = (availW - colGap) / 2.0f;
+	const float colH = ImGui::GetContentRegionAvail().y;
 
 	// ==================== COLUMNA IZQUIERDA: MEMORY AIM ====================
 	ImGui::BeginChild("##AimLeft", ImVec2(colW, colH), false, ImGuiWindowFlags_NoBackground);
@@ -712,6 +705,13 @@ static void AimbotTab(ImDrawList* dl, float pulse)
 		KeyBindRow(ldl, "##AimMaK", "Tecla de activacion", "Mantener pulsada para aimear",
 			&g_Globals.AimBot.AimbotBind, COL_GREEN, pulse);
 		BoneSelector(ldl, "##AimMaB", "TARGET (BONE)", &g_Globals.AimBot.TargetBone, COL_GREEN, pulse);
+		// FOV unico compartido (lo usan los tres modos)
+		SliderRow(ldl, "##AimFov", "FOV (todos)", "%d px",
+			&g_Globals.AimBot.DistanceAim, 50, 500, COL_GREEN, pulse);
+		RowToggle(ldl, "##AimFv", "Mostrar FOV", "Circulo del radio en pantalla",
+			&g_Globals.Misc.ShowAimbotFov, COL_GREEN, pulse);
+		RowToggle(ldl, "##AimMaEn", "Solo Enemigos", "No aimear a aliados",
+			&g_Globals.AimBot.OnlyEnemies, COL_GREEN, pulse);
 		RowToggle(ldl, "##AimMaKn", "Ignorar Derribados", "No aimear a jugadores knocked",
 			&g_Globals.AimBot.IgnoreKnocked, COL_GREEN, pulse);
 		RowToggle(ldl, "##AimMaBt", "Ignorar Bots", "No aimear a bots",
@@ -924,7 +924,7 @@ void Interface::RenderGui()
 	tGlobal += dt;
 	const float pulse = (sinf(tGlobal * 2.4f) + 1.0f) * 0.5f;
 
-	ImGui::SetNextWindowSize(ImVec2(800.0f, 600.0f));
+	ImGui::SetNextWindowSize(ImVec2(1000.0f, 650.0f));
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 12.0f);
