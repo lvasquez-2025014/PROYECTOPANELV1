@@ -184,6 +184,7 @@
     <ClInclude Include="EspLines\Exploits\FastSwitch.hpp" />
     <ClInclude Include="EspLines\Exploits\NoRecoil.hpp" />
     <ClInclude Include="EspLines\Exploits\NoReload.hpp" />
+    <ClInclude Include="EspLines\Exploits\SpeedTimer.hpp" />
     <ClInclude Include="EspLines\Exploits\TeleKill.hpp" />
     <ClInclude Include="EspLines\Features\Visuals\Minimap.hpp" />
     <ClInclude Include="EspLines\Features\Visuals\StatusList.hpp" />
@@ -310,6 +311,7 @@
     <ClCompile Include="EspLines\Exploits\FastSwitch.cpp" />
     <ClCompile Include="EspLines\Exploits\NoRecoil.cpp" />
     <ClCompile Include="EspLines\Exploits\NoReload.cpp" />
+    <ClCompile Include="EspLines\Exploits\SpeedTimer.cpp" />
     <ClCompile Include="EspLines\Exploits\TeleKill.cpp" />
     <ClCompile Include="EspLines\Features\Visuals\Minimap.cpp" />
     <ClCompile Include="EspLines\Features\Visuals\StatusList.cpp" />

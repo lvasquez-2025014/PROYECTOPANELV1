@@ -72,10 +72,11 @@ public:
     struct Silent {
         bool Enabled = false;
         Config::HitBox HitBox = Config::HitBox::Head;
-        // Ajuste vertical de precision del silent: compensa la diferencia entre
-        // el bone Head del modelo y la cabeza visible en el juego. Calibrable
-        // desde la pestana AIMBOT (valor por defecto como el MemoryAim).
-        float HeadOffset = 0.12f;
+        // Hueso a apuntar con el silent aim (selector propio en la pestana AIMBOT)
+        Config::Bone TargetBone = Config::Bone::Head;
+        // Velocidad de bala (m/s) para predecir el movimiento del target:
+        // lead = velocidad del target * tiempo de vuelo.
+        float BulletSpeed = 950.0f;
     }
     Silent;
     struct Exploits {
@@ -96,6 +97,10 @@ public:
         bool FastSwitch = false;  // cambio de arma instantaneo
         bool NoRecoil = false;    // sin retroceso
         bool NoReload = false;    // sin recarga
+
+        // ---- SPEED TIMER (acelera el tiempo del juego) ----
+        bool SpeedTimer = false;
+        float SpeedMultiplier = 2.0f;
 
         // ---- TECLAS TOGGLE (presionar para activar/desactivar) ----
         int FastSwitchKey = 0;

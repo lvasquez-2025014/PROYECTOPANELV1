@@ -157,8 +157,8 @@ enum SkeletonIdx {
 	SK_Head, SK_Neck, SK_Spine, SK_Pelvis,
 	SK_LShoulder, SK_LElbow, SK_LHand,
 	SK_RShoulder, SK_RElbow, SK_RHand,
-	SK_LKnee, SK_LAnkle, SK_LFoot,
-	SK_RKnee, SK_RAnkle, SK_RFoot,
+	SK_LAnkle, SK_LFoot,
+	SK_RAnkle, SK_RFoot,
 	SK_Count
 };
 
@@ -167,8 +167,8 @@ void DrawSkeleton(ImDrawList* dl, const Player::SkeletonBones& s, ImU32 col, con
 		&s.Head, &s.Neck, &s.Spine, &s.Pelvis,
 		&s.LeftShoulder, &s.LeftElbow, &s.LeftHand,
 		&s.RightShoulder, &s.RightElbow, &s.RightHand,
-		&s.LeftKnee, &s.LeftAnkle, &s.LeftFoot,
-		&s.RightKnee, &s.RightAnkle, &s.RightFoot
+		&s.LeftAnkle, &s.LeftFoot,
+		&s.RightAnkle, &s.RightFoot
 	};
 
 	ImVec2 p[SK_Count];
@@ -187,8 +187,8 @@ void DrawSkeleton(ImDrawList* dl, const Player::SkeletonBones& s, ImU32 col, con
 		{ SK_Spine, SK_LShoulder }, { SK_LShoulder, SK_LElbow }, { SK_LElbow, SK_LHand },
 		{ SK_Spine, SK_RShoulder }, { SK_RShoulder, SK_RElbow }, { SK_RElbow, SK_RHand },
 		{ SK_Spine, SK_Pelvis },
-		{ SK_Pelvis, SK_LKnee }, { SK_LKnee, SK_LAnkle }, { SK_LAnkle, SK_LFoot },
-		{ SK_Pelvis, SK_RKnee }, { SK_RKnee, SK_RAnkle }, { SK_RAnkle, SK_RFoot },
+		{ SK_Pelvis, SK_LAnkle }, { SK_LAnkle, SK_LFoot },
+		{ SK_Pelvis, SK_RAnkle }, { SK_RAnkle, SK_RFoot },
 	};
 
 	for (auto& pr : pairs) {

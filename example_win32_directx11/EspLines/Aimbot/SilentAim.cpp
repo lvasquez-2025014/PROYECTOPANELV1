@@ -83,6 +83,11 @@ namespace Aim {
         // ==================================================================
         Player* bestTarget = nullptr;
         float bestCombined = FLT_MAX;
+        // Retencion de target: conserva la entidad que ya se esta disparando
+        // para que TODAS las balas del spray vayan a la misma entidad en vez
+        // de saltar entre las mas cercanas al crosshair. Se mantiene mientras
+        // su puntaje no sea el doble de malo que el mejor candidato nuevo.
+        static uint32_t s_lastTargetAddr = 0;
         Vector2 screenCenter((float)g_Globals.EspConfig.Width / 2.0f, (float)g_Globals.EspConfig.Height / 2.0f);
         const float maxFov = (float)g_Globals.AimBot.DistanceAim;
         const float refDistance = 300.0f; // distancia de referencia para normalizar
@@ -119,6 +124,10 @@ namespace Aim {
             if (distNorm > 1.0f) distNorm = 1.0f;
             float combined = fovNorm * 0.70f + distNorm * 0.30f;
 
+            // Bonus de continuidad: el target actual disparando se mantiene
+            // hasta que aparezca otro claramente mejor (puntaje a menos de la mitad)
+            if (entity->Address == s_lastTargetAddr) combined *= 0.5f;
+
             if (combined < bestCombined) {
                 bestCombined = combined;
                 bestTarget = entity;
@@ -126,13 +135,15 @@ namespace Aim {
         }
 
         if (bestTarget == nullptr) {
+            s_lastTargetAddr = 0;
             g_valid = false;
             return;
         }
+        s_lastTargetAddr = bestTarget->Address;
 
-        // Hueso apuntado (Head / Neck / Hip), igual que MemoryAim
+        // Hueso apuntado (Head / Neck / Hip), selector propio del silent
         Vector3 aimPosition;
-        switch (g_Globals.AimBot.TargetBone) {
+        switch (g_Globals.Silent.TargetBone) {
         case Config::Bone::Neck:
             aimPosition = bestTarget->Neck != Vector3::Zero() ? bestTarget->Neck : bestTarget->Head;
             break;
@@ -157,17 +168,41 @@ namespace Aim {
         }
 
         // ==================================================================
-        // DIRECCION DEL RAYO: se calcula desde la CAMARA (origen real del
-        // rayo del juego), no desde la posicion del canon (StartPosition).
-        // Usar el canon como origen desviaba el impacto verticalmente al
-        // apuntar en angulo: las balas caian al pecho/otro lado.
-        // El offset HeadOffset calibra la diferencia entre el bone Head del
-        // modelo y la cabeza visible (igual que el MemoryAim con +0.12).
+        // ORIGEN DEL RAYO: al disparar a la cadera (hip-fire) el proyectil
+        // sale del canon, que queda mas abajo que la camara; apuntar desde
+        // la camara entonces desvia las balas al pecho. Cuando se apunta
+        // (ADS) el canon coincide con la camara y ahi la camara funciona.
+        // Se usa el StartPosition real del arma si es valido (vector finito,
+        // distinto de cero y pegado al jugador) y camara como respaldo.
         // ==================================================================
-        Vector3 aimPos = aimPosition;
-        aimPos.Y += g_Globals.Silent.HeadOffset;
+        Vector3 rayOrigin = g_Globals.EspConfig.MainCamera;
+        Vector3 startPos;
+        if (Mem.Read<Vector3>(aimInstance + Offsets::StartPosition, startPos) && IsFiniteVector(startPos)) {
+            float originGap = Vector3::Distance(startPos, g_Globals.EspConfig.MainCamera);
+            if (originGap > 0.05f && originGap < 3.0f) {
+                rayOrigin = startPos;
+            }
+        }
 
-        Vector3 direction = aimPos - g_Globals.EspConfig.MainCamera;
+        Vector3 aimPos = aimPosition;
+
+        // ==================================================================
+        // PREDICCION DE BALA (lead): la bala tarda en llegar, y mientras
+        // vuela el target sigue moviendose. Se proyecta la posicion del
+        // target con su velocidad estimada por el tiempo de vuelo:
+        // lead = velocity * (distancia / velocidad de bala).
+        // El tiempo de vuelo se limita a 250ms para no sobre-corregir a
+        // distancias extremas o con balas muy lentas.
+        // ==================================================================
+        Vector3 toTarget = aimPos - rayOrigin;
+        float distToTarget = sqrtf(toTarget.X * toTarget.X + toTarget.Y * toTarget.Y + toTarget.Z * toTarget.Z);
+        float flightTime = g_Globals.Silent.BulletSpeed > 10.0f
+            ? distToTarget / g_Globals.Silent.BulletSpeed
+            : 0.0f;
+        if (flightTime > 0.25f) flightTime = 0.25f;
+        aimPos += bestTarget->Velocity * flightTime;
+
+        Vector3 direction = aimPos - rayOrigin;
         if (!IsFiniteVector(direction)) {
             g_valid = false;
             return;

@@ -9,6 +9,8 @@
 #include <EspLines/Exploits/FastSwitch.hpp>
 #include <EspLines/Exploits/NoRecoil.hpp>
 #include <EspLines/Exploits/NoReload.hpp>
+#include <EspLines/Exploits/SpeedTimer.hpp>
+#include <EspLines/Exploits/TeleKill.hpp>
 #define NOMINMAX
 #include <Windows.h>
 #undef min
@@ -73,12 +75,14 @@ void Data::Work() {
         ReadEntitySkeleton(ctx.localPlayer, g_Globals.EspConfig.LocalSkeleton);
     }
 
-    // --- 5c. Exploits por frame (FastSwitch / NoRecoil / NoReload) ---
+    // --- 5c. Exploits por frame (FastSwitch / NoRecoil / NoReload / SpeedTimer / TeleKill) ---
     FastSwitch::OnFrame(ctx.localPlayer);
     uint32_t weaponAddr = Mem.Read<uint32_t>(ctx.localPlayer + Offsets::Weapon);
     NoRecoil::OnFrame(ctx.localPlayer, weaponAddr);
     uint32_t playerAttrs = Mem.Read<uint32_t>(ctx.localPlayer + Offsets::LocalPlayerAttributes);
     NoReload::OnFrame(ctx.localPlayer, playerAttrs);
+    SpeedTimer::Frame();
+    TeleKill::Frame();
 
     // --- 6. Actualizar los aimbots con la lista de entidades ---
     // El hilo del silent aim arranca aqui (lazy), con la memoria verificada.
@@ -189,10 +193,8 @@ static void ReadEntitySkeleton(uint32_t entity, Player::SkeletonBones& s) {
     ReadBone(entity, Offsets::Bones::RightShoulder, s.RightShoulder);
     ReadBone(entity, Offsets::Bones::RightElbow, s.RightElbow);
     ReadBone(entity, Offsets::Bones::RightHand, s.RightHand);
-    ReadBone(entity, Offsets::Bones::LeftKnee, s.LeftKnee);
     ReadBone(entity, Offsets::Bones::LeftAnkle, s.LeftAnkle);
     ReadBone(entity, Offsets::Bones::LeftFoot, s.LeftFoot);
-    ReadBone(entity, Offsets::Bones::RightKnee, s.RightKnee);
     ReadBone(entity, Offsets::Bones::RightAnkle, s.RightAnkle);
     ReadBone(entity, Offsets::Bones::RightFoot, s.RightFoot);
 }
@@ -343,6 +345,18 @@ void Data::ProcessEntities(const GameContext& ctx) {
             Vector3 refPos = (player.Head != Vector3::Zero()) ? player.Head : player.Hip;
             if (refPos != Vector3::Zero()) {
                 player.Distance = Vector3::Distance(mainPos, refPos);
+            }
+
+            // ==================================================================
+            // VELOCIDAD ESTIMADA (para prediccion de balas del silent aim)
+            // ==================================================================
+            float dt = currentTime - player.LastUpdateTime;
+            if (dt > 0.0f && dt < 0.25f) {
+                Vector3 inst = (player.Head - player.LastHead) * (1.0f / dt);
+                player.Velocity = (player.Velocity + inst) * 0.5f; // suavizado anti-jitter
+            }
+            else {
+                player.Velocity = Vector3::Zero();
             }
 
             // ==================================================================

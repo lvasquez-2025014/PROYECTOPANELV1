@@ -38,8 +38,8 @@ public:
         Vector3 Pelvis;    // centro de la cadera
         Vector3 LeftShoulder, LeftElbow, LeftHand;
         Vector3 RightShoulder, RightElbow, RightHand;
-        Vector3 LeftKnee, LeftAnkle, LeftFoot;
-        Vector3 RightKnee, RightAnkle, RightFoot;
+        Vector3 LeftAnkle, LeftFoot;
+        Vector3 RightAnkle, RightFoot;
     };
     SkeletonBones Skeleton;
 

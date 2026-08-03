@@ -698,11 +698,12 @@ static void AimbotTab(ImDrawList* dl, float pulse)
 			&g_Globals.Silent.Enabled, pulse, colW);
 		RowToggle(mdl, "##AimSi", "Silent Aim", "Activo manteniendo el click izquierdo",
 			&g_Globals.Silent.Enabled, COL_GREEN, pulse);
-		SliderRow(mdl, "##AimSiOff", "Ajuste Vertical", "%+.2f",
-			&g_Globals.Silent.HeadOffset, -0.20f, 0.20f, COL_GREEN, pulse);
+		BoneSelector(mdl, "##AimSiB", "TARGET (BONE)", &g_Globals.Silent.TargetBone, COL_GREEN, pulse);
+		SliderRow(mdl, "##AimSiSpd", "Velocidad de Bala", "%.0f m/s",
+			&g_Globals.Silent.BulletSpeed, 200.0f, 2000.0f, COL_GREEN, pulse);
 		if (Fonts::InterRegular14) ImGui::PushFont(Fonts::InterRegular14);
 		ImVec2 cp = ImGui::GetCursorScreenPos();
-		mdl->AddText(cp + ImVec2(12, 0), COL_TEXT_MUTED, "Calibra el tiro hacia arriba (+) o abajo (-) hasta centrar la cabeza");
+		mdl->AddText(cp + ImVec2(12, 0), COL_TEXT_MUTED, "Elige el hueso del target. La velocidad de bala predice el movimiento del objetivo");
 		if (Fonts::InterRegular14) ImGui::PopFont();
 		ImGui::Dummy(ImVec2(0, 24));
 	}
@@ -803,16 +804,10 @@ static void ExploitsTab(ImDrawList* dl, float pulse)
 		SectionTitle(ldl, "EXPLOITS");
 		RowToggle(ldl, "##ExFs", "Fast Switch", "Cambio de arma instantaneo",
 			&g_Globals.Exploits.FastSwitch, COL_GREEN, pulse);
-		KeyBindRow(ldl, "##ExFsK", "Tecla (toggle)", "Presiona para activar/desactivar",
-			&g_Globals.Exploits.FastSwitchKey, COL_GREEN, pulse);
 		RowToggle(ldl, "##ExNr", "Sin Retroceso", "Elimina el retroceso del arma",
 			&g_Globals.Exploits.NoRecoil, COL_GREEN, pulse);
-		KeyBindRow(ldl, "##ExNrK", "Tecla (toggle)", "Presiona para activar/desactivar",
-			&g_Globals.Exploits.NoRecoilKey, COL_GREEN, pulse);
 		RowToggle(ldl, "##ExNl", "Sin Recarga", "No necesitas recargar el arma",
 			&g_Globals.Exploits.NoReload, COL_GREEN, pulse);
-		KeyBindRow(ldl, "##ExNlK", "Tecla (toggle)", "Presiona para activar/desactivar",
-			&g_Globals.Exploits.NoReloadKey, COL_GREEN, pulse);
 	}
 	ImGui::EndChild();
 
@@ -831,6 +826,10 @@ static void ExploitsTab(ImDrawList* dl, float pulse)
 			&g_Globals.Exploits.TeleKillKey, COL_GREEN, pulse);
 		SliderRow(rdl, "##ExTkD", "Distancia de uso", "%0.1f m",
 			&g_Globals.Exploits.TeleKillDistance, 1.0f, 50.0f, COL_GREEN, pulse);
+		RowToggle(rdl, "##ExSt", "Speed Timer", "Acelera el tiempo del juego",
+			&g_Globals.Exploits.SpeedTimer, COL_GREEN, pulse);
+		SliderRow(rdl, "##ExStM", "Velocidad", "%.1fx",
+			&g_Globals.Exploits.SpeedMultiplier, 1.0f, 5.0f, COL_GREEN, pulse);
 	}
 	ImGui::EndChild();
 }

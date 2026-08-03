@@ -105,7 +105,7 @@ public:
     public:
         static inline uintptr_t Head = 0x458;
         static inline uintptr_t Spine = 0x460;
-        static inline uintptr_t Neck = 0x454;
+        static inline uintptr_t Neck = 0x460;   // m_NeckNode (OB54 V7A: no hay bone 0x454)
         static inline uintptr_t Hip = 0x45C;
         static inline uintptr_t Root = 0x46C;
         static inline uintptr_t LeftAnkle = 0x474;
@@ -125,8 +125,9 @@ public:
         static inline uintptr_t HipCenter = 0x45C;
         static inline uintptr_t ToeRight = 0x484;
         static inline uintptr_t ToeLeft = 0x488;
-        static inline uintptr_t LeftKnee = 0x470;
-        static inline uintptr_t RightKnee = 0x470;
+        // OB54 V7A: no existen bones de rodilla (0x470 no es valido)
+        static inline uintptr_t LeftKnee = 0x0;
+        static inline uintptr_t RightKnee = 0x0;
         static inline uintptr_t LeftToe = 0x480;
         static inline uintptr_t RightToe = 0x484;
         // Skeleton offsets (user version)
