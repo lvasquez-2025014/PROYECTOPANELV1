@@ -102,6 +102,30 @@ public:
         bool SpeedTimer = false;
         float SpeedMultiplier = 2.0f;
 
+        // ---- SPEED HACK (correr rapido: RunSpeedUpScale/FallingSpeedUpScale) ----
+        bool SpeedHack = false;
+        float SpeedHackMultiplier = 1.5f;
+
+        // ---- MEJORA DE ARMAS (WeaponAttributes) ----
+        bool WeaponAttributes = false;
+        int WeaponLevel = 0;           // 0=LV1, 1=LV2, 2=LV3, 3=LV4 (extras)
+        int BoostWeaponId = 7;         // arma a mejorar (0 = todas, 7=UMP, 28=XM8, 58=MiniUzi)
+        bool MiniUziSpeed = false;
+        float MiniUziSpeedMultiplier = 1.35f;
+
+        // ---- UNDER PLAYER (hundirse bajo el jugador) ----
+        bool UnderPlayer = false;
+        int UnderPlayerKey = 0; // tecla: volver a la posicion original
+
+        // ---- PULL PLAYER (jalar enemigos al disparar) ----
+        bool PullPlayer = false;
+        int PullPlayerKey = 0;     // tecla: mantener para jalar (ademas de disparar)
+        int PullBone = 0;          // 0=Head, 1=Spine, 2=Root
+        float PullDistance = 10.0f;  // alcance maximo en metros
+        float MinPullDistance = 1.0f; // distancia minima para no jalar a quien esta encima
+        float PullScreenRange = 150.0f; // px desde el centro de la pantalla
+        float PullSmooth = 1.0f;     // velocidad del jale (mas alto = mas rapido)
+
         // ---- TECLAS TOGGLE (presionar para activar/desactivar) ----
         int FastSwitchKey = 0;
         int NoRecoilKey = 0;

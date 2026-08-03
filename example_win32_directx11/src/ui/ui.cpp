@@ -651,7 +651,303 @@ static void BoneSelector(ImDrawList* dl, const char* id, const char* label, Conf
 }
 
 // ============================================================================
-// PESTAÑA AIMBOT: tres modos (MEMORY, SILENT y RAGE AIM) en columnas
+// SELECTOR DE 3 OPCIONES (HEAD / SPINE / ROOT, etc.)
+// ============================================================================
+static void TriSelector(ImDrawList* dl, const char* id, const char* label, int* v,
+    const char* optA, const char* optB, const char* optC, ImU32 accent, float pulse, float width = 0.0f)
+{
+	ImVec2 p = ImGui::GetCursorScreenPos();
+	float w = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
+
+	if (Fonts::InterSemiBold) ImGui::PushFont(Fonts::InterSemiBold);
+	dl->AddText(p + ImVec2(12, 8), COL_TEXT_MAIN, label);
+	if (Fonts::InterSemiBold) ImGui::PopFont();
+
+	const float h = 30.0f;
+	const float sw = (w - 24 - 12) / 3.0f;
+	const ImVec2 b0(p.x + 12, p.y + 28);
+	const char* opts[3] = { optA, optB, optC };
+
+	for (int i = 0; i < 3; i++) {
+		ImRect r(b0 + ImVec2(i * (sw + 6), 0), b0 + ImVec2(i * (sw + 6) + sw, h));
+		const bool active = (*v == i);
+		const bool hov = ImGui::IsMouseHoveringRect(r.Min, r.Max);
+		if (hov && !active) dl->AddRectFilled(r.Min, r.Max, IM_COL32(255, 255, 255, 5), 6.0f);
+		dl->AddRectFilled(r.Min, r.Max, active ? ((accent & 0x00FFFFFF) | (30u << 24)) : IM_COL32(20, 24, 22, 255), 6.0f);
+		dl->AddRect(r.Min, r.Max, active ? accent : IM_COL32(60, 70, 64, 255), 6.0f, ImDrawFlags_RoundCornersAll, 1.0f);
+
+		ImGui::PushID(i);
+		ImGuiID tid = ImGui::GetID(id);
+		ImGui::ItemSize(r);
+		if (ImGui::ItemAdd(r, tid)) {
+			bool thov, theld;
+			if (ImGui::ButtonBehavior(r, tid, &thov, &theld, ImGuiButtonFlags_PressedOnClick | ImGuiButtonFlags_NoHoldingActiveId)) {
+				*v = i;
+			}
+		}
+		ImGui::PopID();
+
+		if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
+		ImVec2 ts = ImGui::CalcTextSize(opts[i]);
+		dl->AddText(r.Min + ImVec2((r.GetWidth() - ts.x) * 0.5f, (r.GetHeight() - ts.y) * 0.5f), active ? accent : COL_TEXT_DIM, opts[i]);
+		if (Fonts::InterBold12) ImGui::PopFont();
+	}
+
+	ImGui::Dummy(ImVec2(0, h + 34));
+}
+
+// ============================================================================
+// SELECTOR DE ARMA (click abre la lista completa; rueda del raton cicla)
+// ============================================================================
+struct BoostWeaponEntry {
+    int id;
+    const char* name;
+};
+
+static const BoostWeaponEntry g_weapons[] = {
+    { 0, "TODAS" },
+    { 1, "Punos" },
+    { 2, "M4A1" },
+    { 3, "USP" },
+    { 4, "AWM" },
+    { 5, "M1014" },
+    { 6, "AK47" },
+    { 7, "UMP" },
+    { 8, "MP5" },
+    { 9, "DESERT EAGLE" },
+    { 10, "G18" },
+    { 11, "M14" },
+    { 12, "SCAR" },
+    { 13, "VSS" },
+    { 14, "GROZA" },
+    { 15, "MP40" },
+    { 16, "SARTEN" },
+    { 17, "MACHETE" },
+    { 18, "SKS" },
+    { 19, "M249" },
+    { 20, "M1873" },
+    { 21, "KAR98K" },
+    { 24, "FAMAS" },
+    { 25, "M500" },
+    { 26, "SVD" },
+    { 27, "BATE" },
+    { 28, "XM8" },
+    { 29, "SPAS12" },
+    { 30, "M60" },
+    { 32, "P90" },
+    { 33, "AN94" },
+    { 34, "KATANA" },
+    { 35, "CG15" },
+    { 39, "PLASMA" },
+    { 41, "M1887" },
+    { 43, "THOMPSON" },
+    { 45, "M828" },
+    { 46, "AUG" },
+    { 47, "PARAFAL" },
+    { 48, "WOODPECKER" },
+    { 49, "VECTOR" },
+    { 50, "MAG-7" },
+    { 51, "HOZ" },
+    { 54, "KORD" },
+    { 55, "M1917" },
+    { 56, "USP-2" },
+    { 57, "KINGFISHER" },
+    { 58, "MINI UZI" },
+    { 60, "MP5 1" },
+    { 62, "VSS 1" },
+    { 65, "AWM-Y" },
+    { 67, "FAMAS 1" },
+    { 70, "GROZA-X" },
+    { 71, "M249-X" },
+    { 72, "SVD-Y" },
+    { 73, "G36" },
+    { 75, "M24" },
+    { 78, "RIFLE CURATIVO" },
+    { 80, "M4A1 1" },
+    { 81, "M4A1 2" },
+    { 82, "M4A1 3" },
+    { 86, "CHARGE BUSTER" },
+    { 88, "MAC10" },
+    { 89, "AC80" },
+    { 93, "PISTOLA CURATIVA" },
+    { 99, "ARMA ESCUDO" },
+    { 100, "LANZALLAMAS" },
+    { 119, "M1887-X" },
+    { 120, "MP5 2" },
+    { 121, "MP5 3" },
+    { 124, "VSS 2" },
+    { 125, "VSS 3" },
+    { 130, "FAMAS 2" },
+    { 131, "FAMAS 3" },
+    { 150, "BIZON" },
+    { 178, "SCAR 1" },
+    { 179, "SCAR 2" },
+    { 180, "SCAR 3" },
+    { 181, "TROGON" },
+    { 182, "TROGON - GRANADA" },
+    { 184, "M1014 1" },
+    { 185, "M1014 2" },
+    { 186, "M1014 3" },
+    { 193, "AUG 1" },
+    { 194, "AUG 2" },
+    { 195, "AUG 3" },
+    { 197, "VSK94" },
+    { 228, "MAC10 1" },
+    { 229, "MAC10 2" },
+    { 230, "MAC10 3" },
+    { 602, "GRANADA CEGADORA" },
+    { 608, "GRANADA HIELO" },
+    { 1204, "PARED GLOO" },
+    { 10449, "TRIPLE SHURIKEN" },
+    { 21001, "PISTOLA CURATIVA-Y" },
+    { 21002, "M590" },
+    { 21003, "HEAVY SHURIKEN" },
+    { 21004, "LIGHT SHURIKEN" },
+};
+static const int g_weaponsCount = (int)(sizeof(g_weapons) / sizeof(g_weapons[0]));
+
+static void WeaponSelectorRow(ImDrawList* dl, const char* rowId, const char* label, const char* sub, int* v, ImU32 accent, float pulse, float width = 0.0f)
+{
+    int idx = 0;
+    for (int i = 0; i < g_weaponsCount; i++) {
+        if (g_weapons[i].id == *v) { idx = i; break; }
+    }
+
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    float w = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
+    ImVec2 p0 = p + ImVec2(2, 0), p1 = p + ImVec2(w - 2, 44);
+
+    if (ImGui::IsMouseHoveringRect(p0, p1))
+        dl->AddRectFilled(p0, p1, IM_COL32(255, 255, 255, 5), 6.0f);
+
+    if (Fonts::InterSemiBold) ImGui::PushFont(Fonts::InterSemiBold);
+    dl->AddText(p + ImVec2(12, 6), COL_TEXT_MAIN, label);
+    if (Fonts::InterSemiBold) ImGui::PopFont();
+
+    if (sub && Fonts::InterRegular14) {
+        ImGui::PushFont(Fonts::InterRegular14);
+        dl->AddText(p + ImVec2(12, 26), COL_TEXT_DIM, sub);
+        ImGui::PopFont();
+    }
+
+    const ImVec2 bw = p + ImVec2(w - 16 - 140, 9);
+    const ImVec2 bs(140, 26);
+    const bool hovBadge = ImGui::IsMouseHoveringRect(bw, bw + bs);
+    dl->AddRectFilled(bw, bw + bs, IM_COL32(20, 24, 22, 255), 6.0f);
+    dl->AddRect(bw, bw + bs, hovBadge ? accent : IM_COL32(60, 70, 64, 255), 6.0f, ImDrawFlags_RoundCornersAll, 1.0f);
+
+    char badge[40];
+    ImFormatString(badge, sizeof(badge), "%s (%d)", g_weapons[idx].name, g_weapons[idx].id);
+    if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
+    ImVec2 ws = ImGui::CalcTextSize(badge);
+    if (ws.x > bs.x - 12) {
+        // recortar el nombre con "..." para que quepa en el badge
+        for (int c = 0; badge[c]; c++) {
+            badge[c + 3] = 0;
+            ImVec2 ts = ImGui::CalcTextSize(badge);
+            if (ts.x > bs.x - 12) break;
+        }
+        ImFormatString(badge, sizeof(badge), "%s... (%d)", g_weapons[idx].name, g_weapons[idx].id);
+        // segundo recorte si aun es largo
+        while (true) {
+            ImVec2 ts = ImGui::CalcTextSize(badge);
+            if (ts.x <= bs.x - 12) break;
+            size_t ln = strlen(badge);
+            if (ln <= 6) break;
+            badge[ln - 1] = 0;
+        }
+    }
+    ws = ImGui::CalcTextSize(badge);
+    dl->AddText(bw + ImVec2((bs.x - ws.x) * 0.5f, (bs.y - ws.y) * 0.5f - 1.0f), COL_TEXT_MAIN, badge);
+    if (Fonts::InterBold12) ImGui::PopFont();
+
+    ImGui::PushID(rowId);
+    ImGui::ItemSize(ImVec2(w, 44));
+    if (hovBadge) {
+        // Rueda del raton: ciclar entre armas rapidamente
+        float wheel = ImGui::GetIO().MouseWheel;
+        if (wheel != 0.0f) {
+            int dir = wheel > 0.0f ? 1 : -1;
+            *v = g_weapons[(idx + dir + g_weaponsCount) % g_weaponsCount].id;
+        }
+        // Click: abrir la lista completa
+        if (ImGui::IsMouseClicked(0)) {
+            ImGui::OpenPopup("##BoostWeaponList");
+        }
+    }
+    if (ImGui::BeginPopup("##BoostWeaponList")) {
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(18, 22, 20, 255));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(20, 24, 22, 255));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(30, 36, 32, 255));
+        ImGui::PushStyleColor(ImGuiCol_Text, COL_TEXT_MAIN);
+        if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
+        ImGui::Text("ARMA A MEJORAR");
+        if (Fonts::InterBold12) ImGui::PopFont();
+
+        if (ImGui::BeginListBox("##wlist", ImVec2(360.0f, 380.0f))) {
+            for (int i = 0; i < g_weaponsCount; i++) {
+                char item[48];
+                ImFormatString(item, sizeof(item), "%s  (%d)", g_weapons[i].name, g_weapons[i].id);
+                const bool sel = (i == idx);
+                if (ImGui::Selectable(item, sel)) {
+                    *v = g_weapons[i].id;
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            ImGui::EndListBox();
+        }
+        ImGui::PopStyleColor(4);
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+
+    ImGui::Dummy(ImVec2(0, 44));
+}
+
+// ============================================================================
+// PESTAÑA BOOST: mejora de armas (fire rate por nivel) + mini uzi speed
+// ============================================================================
+static void BoostTab(ImDrawList* dl, float pulse)
+{
+	(void)dl;
+	float availW = ImGui::GetContentRegionAvail().x;
+	const float colGap = 32.0f;
+	const float colW = (availW - colGap) * 0.5f;
+	const float availH = ImGui::GetContentRegionAvail().y;
+
+	// ==================== COLUMNA IZQUIERDA: MEJORA DE ARMAS ====================
+	ImGui::BeginChild("##BstLeft", ImVec2(colW, availH), false, ImGuiWindowFlags_NoBackground);
+	{
+		ImDrawList* ldl = ImGui::GetWindowDrawList();
+
+		SectionTitle(ldl, "MEJORA DE ARMAS");
+		RowToggle(ldl, "##BstWa", "Mejora de Armas", "Fire rate por nivel de arma",
+			&g_Globals.Exploits.WeaponAttributes, COL_GREEN, pulse);
+		SliderRow(ldl, "##BstWaL", "Nivel de arma", "LV%d",
+			&g_Globals.Exploits.WeaponLevel, 0, 3, COL_GREEN, pulse);
+		WeaponSelectorRow(ldl, "##BstWaW", "Arma a mejorar", "Click para cambiar",
+			&g_Globals.Exploits.BoostWeaponId, COL_GREEN, pulse);
+	}
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+
+	// ==================== COLUMNA DERECHA: MINI UZI ====================
+	ImGui::BeginChild("##BstRight", ImVec2(colW, availH), false, ImGuiWindowFlags_NoBackground);
+	{
+		ImDrawList* rdl = ImGui::GetWindowDrawList();
+
+		SectionTitle(rdl, "MINI UZI SPEED");
+		RowToggle(rdl, "##BstMu", "Mini Uzi Speed", "Speed hack solo con Mini Uzi",
+			&g_Globals.Exploits.MiniUziSpeed, COL_GREEN, pulse);
+		SliderRow(rdl, "##BstMuM", "Multiplicador", "%.2fx",
+			&g_Globals.Exploits.MiniUziSpeedMultiplier, 1.05f, 1.5f, COL_GREEN, pulse);
+	}
+	ImGui::EndChild();
+}
+
+// ============================================================================
+// PESTAÑA EXPLOITS
 // ============================================================================
 static void AimbotTab(ImDrawList* dl, float pulse)
 {
@@ -808,6 +1104,10 @@ static void ExploitsTab(ImDrawList* dl, float pulse)
 			&g_Globals.Exploits.NoRecoil, COL_GREEN, pulse);
 		RowToggle(ldl, "##ExNl", "Sin Recarga", "No necesitas recargar el arma",
 			&g_Globals.Exploits.NoReload, COL_GREEN, pulse);
+		RowToggle(ldl, "##ExSh", "Speed Hack", "Corre mas rapido",
+			&g_Globals.Exploits.SpeedHack, COL_GREEN, pulse);
+		SliderRow(ldl, "##ExShM", "Velocidad carrera", "%.2fx",
+			&g_Globals.Exploits.SpeedHackMultiplier, 1.0f, 2.0f, COL_GREEN, pulse);
 	}
 	ImGui::EndChild();
 
@@ -826,10 +1126,24 @@ static void ExploitsTab(ImDrawList* dl, float pulse)
 			&g_Globals.Exploits.TeleKillKey, COL_GREEN, pulse);
 		SliderRow(rdl, "##ExTkD", "Distancia de uso", "%0.1f m",
 			&g_Globals.Exploits.TeleKillDistance, 1.0f, 50.0f, COL_GREEN, pulse);
-		RowToggle(rdl, "##ExSt", "Speed Timer", "Acelera el tiempo del juego",
+		RowToggle(rdl, "##ExSt", "Speed Timer", "Acelera el tiempo y tu velocidad",
 			&g_Globals.Exploits.SpeedTimer, COL_GREEN, pulse);
 		SliderRow(rdl, "##ExStM", "Velocidad", "%.1fx",
 			&g_Globals.Exploits.SpeedMultiplier, 1.0f, 5.0f, COL_GREEN, pulse);
+		RowToggle(rdl, "##ExUp", "Under Player", "Hundete 0.7m bajo el suelo",
+			&g_Globals.Exploits.UnderPlayer, COL_GREEN, pulse);
+		KeyBindRow(rdl, "##ExUpK", "Tecla volver", "Vuelve a tu posicion original",
+			&g_Globals.Exploits.UnderPlayerKey, COL_GREEN, pulse);
+		RowToggle(rdl, "##ExPp", "Pull Player", "Jala al enemigo al disparar",
+			&g_Globals.Exploits.PullPlayer, COL_GREEN, pulse);
+		KeyBindRow(rdl, "##ExPpK", "Tecla pull", "Mantener para jalar sin disparar",
+			&g_Globals.Exploits.PullPlayerKey, COL_GREEN, pulse);
+		TriSelector(rdl, "##ExPpB", "Hueso", &g_Globals.Exploits.PullBone,
+			"HEAD", "SPINE", "ROOT", COL_GREEN, pulse);
+		SliderRow(rdl, "##ExPpD", "Alcance", "%0.1f m",
+			&g_Globals.Exploits.PullDistance, 1.0f, 50.0f, COL_GREEN, pulse);
+		SliderRow(rdl, "##ExPpS", "Suavidad", "%.1fx",
+			&g_Globals.Exploits.PullSmooth, 0.5f, 4.0f, COL_GREEN, pulse);
 	}
 	ImGui::EndChild();
 }
@@ -943,7 +1257,8 @@ static void DrawTabContent(ImDrawList* cdl, int tab, float pulse)
 	case 0: AimbotTab(cdl, pulse); break;
 	case 1: EspTab(cdl, pulse); break;
 	case 2: ExploitsTab(cdl, pulse); break;
-	case 3: ConfigTab(cdl, pulse); break;
+	case 3: BoostTab(cdl, pulse); break;
+	case 4: ConfigTab(cdl, pulse); break;
 	}
 }
 
@@ -1010,15 +1325,15 @@ void Interface::RenderGui()
 		// ====================================================================
 		// PESTAÑAS
 		// ====================================================================
-		static const char* tabNames[] = { "AIMBOT", "ESP", "EXPLOITS", "CONFIG" };
-		static const char* tabIcons[] = { "\uF05B", "\uF06E", "\uF0E7", "\uF013" };
+		static const char* tabNames[] = { "AIMBOT", "ESP", "EXPLOITS", "BOOST", "CONFIG" };
+		static const char* tabIcons[] = { "\uF05B", "\uF06E", "\uF0E7", "\uE059", "\uF013" };
 		static int curTab = 0;
 		static int targetTab = -1;      // pestana hacia la que se transiciona
 		static int slideDir = 1;        // direccion del deslizamiento (-1 izquierda / +1 derecha)
 		static float tabSlide = 1.0f;   // 0 = inicio de la transicion, 1 = asentada
-		float tabW = (Size.x - 32) / 4.0f;
+		float tabW = (Size.x - 32) / 5.0f;
 
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < 5; i++) {
 			ImVec2 tp = Pos + ImVec2(16 + i * tabW, 52);
 			ImRect r(tp, tp + ImVec2(tabW, 30));
 			bool hov = ImGui::IsMouseHoveringRect(r.Min, r.Max);
@@ -1075,7 +1390,7 @@ void Interface::RenderGui()
 			}
 
 			// Badge de conexion en la pestana CONFIG
-			if (i == 3 && g_AdbState == AdbState::Connected) {
+			if (i == 4 && g_AdbState == AdbState::Connected) {
 				DrawPulseDot(dl, ImVec2(r.Max.x - 16, r.Min.y + 15), COL_GREEN, pulse);
 			}
 		}

@@ -24,6 +24,7 @@
 #include <EspLines/Offsets.hpp>
 #include <EspLines/Aimbot/SilentAim.hpp>
 #include <EspLines/Exploits/TeleKill.hpp>
+#include <EspLines/Exploits/WeaponAttributes.hpp>
 #include <EspLines/Features/Visuals/Visual.hpp>
 #include <src/adb/adb_utils.hpp>
 
@@ -392,6 +393,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 
 	// Detener el hilo del TeleKill (idempotente)
 	TeleKill::Stop();
+
+	// Restaurar atributos de arma (fire scale / speed scales) al descargar
+	WeaponAttributes::RestoreAll();
 
 	closecmd();
     return 0;

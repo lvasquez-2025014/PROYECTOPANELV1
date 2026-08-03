@@ -83,7 +83,8 @@ public:
     static inline uintptr_t BuffWeaponAmmoClip = 0xD0;
 
     static inline uintptr_t NoReload = 0x99;
-    static inline uintptr_t RunSpeedUpScale = 0x1D8;
+    static inline uintptr_t RunSpeedUpScale = 0x1D8; // velocidad de carrera (speed hack)
+    static inline uintptr_t NoReload2 = 0x99; // alias de NoReload para WeaponAttributes (LV4)
     static inline uintptr_t GameTimer = 0x10;
     static inline uintptr_t FixedDeltaTime = 0x24;
     static inline uintptr_t Profile_Rank = 0x58;

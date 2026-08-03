@@ -9,8 +9,11 @@
 #include <EspLines/Exploits/FastSwitch.hpp>
 #include <EspLines/Exploits/NoRecoil.hpp>
 #include <EspLines/Exploits/NoReload.hpp>
+#include <EspLines/Exploits/PullPlayer.hpp>
 #include <EspLines/Exploits/SpeedTimer.hpp>
 #include <EspLines/Exploits/TeleKill.hpp>
+#include <EspLines/Exploits/UnderPlayer.hpp>
+#include <EspLines/Exploits/WeaponAttributes.hpp>
 #define NOMINMAX
 #include <Windows.h>
 #undef min
@@ -83,6 +86,28 @@ void Data::Work() {
     NoReload::OnFrame(ctx.localPlayer, playerAttrs);
     SpeedTimer::Frame();
     TeleKill::Frame();
+    UnderPlayer::Frame();
+    PullPlayer::Frame();
+
+    // --- 5d. SPEED HACK (correr rapido) y MEJORA DE ARMAS (WeaponAttributes) ---
+    // Speed hack: multiplica la velocidad de carrera/caida del jugador.
+    // Al apagarse solo restaura si WeaponAttributes no controla los campos.
+    static bool s_speedHackPrev = false;
+    const bool speedHackOn = g_Globals.Exploits.SpeedHack;
+    if (speedHackOn && playerAttrs) {
+        const float s = g_Globals.Exploits.SpeedHackMultiplier;
+        Mem.Write<float>(playerAttrs + Offsets::RunSpeedUpScale, s);
+        Mem.Write<float>(playerAttrs + Offsets::FallingSpeedUpScale, s);
+    }
+    else if (s_speedHackPrev && !g_Globals.Exploits.MiniUziSpeed && !g_Globals.Exploits.WeaponAttributes) {
+        Mem.Write<float>(playerAttrs + Offsets::RunSpeedUpScale, 1.0f);
+        Mem.Write<float>(playerAttrs + Offsets::FallingSpeedUpScale, 1.0f);
+    }
+    s_speedHackPrev = speedHackOn;
+
+    WeaponAttributes::Apply(ctx.localPlayer, g_Globals.Exploits.WeaponLevel,
+        g_Globals.Exploits.WeaponAttributes, g_Globals.Exploits.MiniUziSpeed,
+        g_Globals.Exploits.MiniUziSpeedMultiplier);
 
     // --- 6. Actualizar los aimbots con la lista de entidades ---
     // El hilo del silent aim arranca aqui (lazy), con la memoria verificada.
