@@ -457,38 +457,6 @@ static void GroupColors(ImDrawList* dl, const char* group, Globals::Visuals::Esp
 }
 
 // ============================================================================
-// PESTAÑAS
-// ============================================================================
-
-// Panel de "proximamente" para tabs vacios
-static void ComingSoonTab(ImDrawList* dl, float pulse)
-{
-	ImVec2 p = ImGui::GetCursorScreenPos();
-	float w = ImGui::GetContentRegionAvail().x;
-
-	dl->AddRectFilled(p + ImVec2(2, 10), p + ImVec2(w - 2, 180), COL_BG_CARD, 8.0f);
-	dl->AddRect(p + ImVec2(2, 10), p + ImVec2(w - 2, 180), COL_BORDER, 8.0f, ImDrawFlags_RoundCornersAll, 1.0f);
-
-	ImVec2 c = p + ImVec2(w * 0.5f, 70);
-	dl->AddCircleFilled(c, 20.0f, IM_COL32(9, 13, 11, 255));
-	dl->AddCircle(c, 20.0f, (COL_GREEN & 0x00FFFFFF) | ((ImU32)(int)(40.0f + pulse * 30.0f) << 24), 32, 1.0f);
-	if (Fonts::FontAwesomeSolid) ImGui::PushFont(Fonts::FontAwesomeSolid);
-	dl->AddText(c - ImVec2(9, 9), COL_GREEN_DIM, "\uF4B7");
-	if (Fonts::FontAwesomeSolid) ImGui::PopFont();
-
-	if (Fonts::InterSemiBold) ImGui::PushFont(Fonts::InterSemiBold);
-	dl->AddText(ImVec2(c.x - ImGui::CalcTextSize("PROXIMAMENTE").x * 0.5f, c.y + 32), COL_TEXT_DIM, "PROXIMAMENTE");
-	if (Fonts::InterSemiBold) ImGui::PopFont();
-
-	if (Fonts::InterRegular14) ImGui::PushFont(Fonts::InterRegular14);
-	ImVec2 ss = ImGui::CalcTextSize("Esta seccion estara disponible en una proxima actualizacion");
-	dl->AddText(ImVec2(c.x - ss.x * 0.5f, c.y + 56), COL_TEXT_MUTED, "Esta seccion estara disponible en una proxima actualizacion");
-	if (Fonts::InterRegular14) ImGui::PopFont();
-
-	ImGui::Dummy(ImVec2(0, 190));
-}
-
-// ============================================================================
 // TARJETA DE MODO (cabecera con icono, titulo, descripcion y estado)
 // ============================================================================
 static void ModeCardHeader(ImDrawList* dl, const char* title, const char* desc, const char* glyph, bool* enabled, float pulse, float width)
@@ -730,6 +698,13 @@ static void AimbotTab(ImDrawList* dl, float pulse)
 			&g_Globals.Silent.Enabled, pulse, colW);
 		RowToggle(mdl, "##AimSi", "Silent Aim", "Activo manteniendo el click izquierdo",
 			&g_Globals.Silent.Enabled, COL_GREEN, pulse);
+		SliderRow(mdl, "##AimSiOff", "Ajuste Vertical", "%+.2f",
+			&g_Globals.Silent.HeadOffset, -0.20f, 0.20f, COL_GREEN, pulse);
+		if (Fonts::InterRegular14) ImGui::PushFont(Fonts::InterRegular14);
+		ImVec2 cp = ImGui::GetCursorScreenPos();
+		mdl->AddText(cp + ImVec2(12, 0), COL_TEXT_MUTED, "Calibra el tiro hacia arriba (+) o abajo (-) hasta centrar la cabeza");
+		if (Fonts::InterRegular14) ImGui::PopFont();
+		ImGui::Dummy(ImVec2(0, 24));
 	}
 	ImGui::EndChild();
 
@@ -802,6 +777,9 @@ static void EspTab(ImDrawList* dl, float pulse)
 		RowToggle(rdl, "##EspDs", "Distancia", "Distancia al enemigo", &g_Globals.Visuals.Distance, COL_GREEN, pulse);
 		RowToggle(rdl, "##EspMm", "Minimapa", "Radar en pantalla", &g_Globals.Visuals.Minimap, COL_GREEN, pulse);
 		RowToggle(rdl, "##EspWm", "Marca de Agua", "Logo ASMODEUS en pantalla", &g_Globals.Visuals.Watermark, COL_GREEN, pulse);
+		RowToggle(rdl, "##EspSk", "Esqueleto", "Huesos de los enemigos", &g_Globals.Visuals.Skeleton, COL_GREEN, pulse);
+		RowToggle(rdl, "##EspSkL", "Mi Esqueleto", "Huesos de tu personaje", &g_Globals.Visuals.LocalSkeleton, COL_GREEN, pulse);
+		RowColor(rdl, "##EspSkC", "Color Esqueleto", g_Globals.Visuals.SkeletonColor, COL_GREEN, pulse);
 
 		SectionTitle(rdl, "RANGO");
 		SliderRow(rdl, "##SlEsp", "Alcance del ESP", "%d m", &g_Globals.Visuals.DistanceEsp, 50, 500, COL_GREEN, pulse);
@@ -811,7 +789,50 @@ static void EspTab(ImDrawList* dl, float pulse)
 
 static void ExploitsTab(ImDrawList* dl, float pulse)
 {
-	ComingSoonTab(dl, pulse);
+	(void)dl;
+	float availW = ImGui::GetContentRegionAvail().x;
+	const float colGap = 32.0f;
+	const float colW = (availW - colGap) * 0.5f;
+	const float availH = ImGui::GetContentRegionAvail().y;
+
+	// ==================== COLUMNA IZQUIERDA: EXPLOITS ====================
+	ImGui::BeginChild("##ExpLeft", ImVec2(colW, availH), false, ImGuiWindowFlags_NoBackground);
+	{
+		ImDrawList* ldl = ImGui::GetWindowDrawList();
+
+		SectionTitle(ldl, "EXPLOITS");
+		RowToggle(ldl, "##ExFs", "Fast Switch", "Cambio de arma instantaneo",
+			&g_Globals.Exploits.FastSwitch, COL_GREEN, pulse);
+		KeyBindRow(ldl, "##ExFsK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.FastSwitchKey, COL_GREEN, pulse);
+		RowToggle(ldl, "##ExNr", "Sin Retroceso", "Elimina el retroceso del arma",
+			&g_Globals.Exploits.NoRecoil, COL_GREEN, pulse);
+		KeyBindRow(ldl, "##ExNrK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.NoRecoilKey, COL_GREEN, pulse);
+		RowToggle(ldl, "##ExNl", "Sin Recarga", "No necesitas recargar el arma",
+			&g_Globals.Exploits.NoReload, COL_GREEN, pulse);
+		KeyBindRow(ldl, "##ExNlK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.NoReloadKey, COL_GREEN, pulse);
+	}
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+
+	// ==================== COLUMNA DERECHA: TELE KILL ====================
+	ImGui::BeginChild("##ExpRight", ImVec2(colW, availH), false, ImGuiWindowFlags_NoBackground);
+	{
+		ImDrawList* rdl = ImGui::GetWindowDrawList();
+
+		ModeCardHeader(rdl, "TELE KILL", "Teleporta al enemigo mas cercano", "\uF1D8",
+			&g_Globals.Exploits.TeleKill, pulse, colW);
+		RowToggle(rdl, "##ExTk", "Tele Kill", "Acerca al enemigo a tu posicion",
+			&g_Globals.Exploits.TeleKill, COL_GREEN, pulse);
+		KeyBindRow(rdl, "##ExTkK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.TeleKillKey, COL_GREEN, pulse);
+		SliderRow(rdl, "##ExTkD", "Distancia de uso", "%0.1f m",
+			&g_Globals.Exploits.TeleKillDistance, 1.0f, 50.0f, COL_GREEN, pulse);
+	}
+	ImGui::EndChild();
 }
 
 static void ConfigTab(ImDrawList* dl, float pulse)

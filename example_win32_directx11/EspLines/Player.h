@@ -30,6 +30,19 @@ public:
     Vector3 Hip;           // Quadril (Essencial para Base da Box e fallback)
     Vector3 Root;          // Raiz (Base do corpo)
 
+    // ===== ESQUELETO COMPLETO (solo se lee si el ESP skeleton esta activo) =====
+    struct SkeletonBones {
+        Vector3 Head;
+        Vector3 Neck;
+        Vector3 Spine;
+        Vector3 Pelvis;    // centro de la cadera
+        Vector3 LeftShoulder, LeftElbow, LeftHand;
+        Vector3 RightShoulder, RightElbow, RightHand;
+        Vector3 LeftKnee, LeftAnkle, LeftFoot;
+        Vector3 RightKnee, RightAnkle, RightFoot;
+    };
+    SkeletonBones Skeleton;
+
     // ===== CACHE DE POSIÇÃO ANTERIOR =====
     Vector3 LastHead;      // Última posição da cabeça
     Vector3 LastHip;       // Última posição do quadril

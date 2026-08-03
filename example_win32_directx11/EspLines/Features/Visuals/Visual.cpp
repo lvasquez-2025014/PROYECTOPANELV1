@@ -151,6 +151,58 @@ void NameAndDist(ImDrawList* dl, const char* name, float dist, float centerX, fl
 }
 
 // ----------------------------------------------------------------------------
+// ESQUELETO (huesos conectados con halo)
+// ----------------------------------------------------------------------------
+enum SkeletonIdx {
+	SK_Head, SK_Neck, SK_Spine, SK_Pelvis,
+	SK_LShoulder, SK_LElbow, SK_LHand,
+	SK_RShoulder, SK_RElbow, SK_RHand,
+	SK_LKnee, SK_LAnkle, SK_LFoot,
+	SK_RKnee, SK_RAnkle, SK_RFoot,
+	SK_Count
+};
+
+void DrawSkeleton(ImDrawList* dl, const Player::SkeletonBones& s, ImU32 col, const Matrix4x4& vm, int W, int H) {
+	const Vector3* src[SK_Count] = {
+		&s.Head, &s.Neck, &s.Spine, &s.Pelvis,
+		&s.LeftShoulder, &s.LeftElbow, &s.LeftHand,
+		&s.RightShoulder, &s.RightElbow, &s.RightHand,
+		&s.LeftKnee, &s.LeftAnkle, &s.LeftFoot,
+		&s.RightKnee, &s.RightAnkle, &s.RightFoot
+	};
+
+	ImVec2 p[SK_Count];
+	bool ok[SK_Count] = {};
+	for (int i = 0; i < SK_Count; i++) {
+		const Vector3& v = *src[i];
+		if (v == Vector3::Zero()) continue;
+		p[i] = W2S::WorldToScreenImVec2(vm, v, W, H);
+		ok[i] = std::isfinite(p[i].x) && std::isfinite(p[i].y) &&
+			p[i].x > -300.0f && p[i].x < (float)W + 300.0f &&
+			p[i].y > -300.0f && p[i].y < (float)H + 300.0f;
+	}
+
+	static const int pairs[][2] = {
+		{ SK_Neck, SK_Head }, { SK_Spine, SK_Neck },
+		{ SK_Spine, SK_LShoulder }, { SK_LShoulder, SK_LElbow }, { SK_LElbow, SK_LHand },
+		{ SK_Spine, SK_RShoulder }, { SK_RShoulder, SK_RElbow }, { SK_RElbow, SK_RHand },
+		{ SK_Spine, SK_Pelvis },
+		{ SK_Pelvis, SK_LKnee }, { SK_LKnee, SK_LAnkle }, { SK_LAnkle, SK_LFoot },
+		{ SK_Pelvis, SK_RKnee }, { SK_RKnee, SK_RAnkle }, { SK_RAnkle, SK_RFoot },
+	};
+
+	for (auto& pr : pairs) {
+		if (!ok[pr[0]] || !ok[pr[1]]) continue;
+		dl->AddLine(p[pr[0]], p[pr[1]], Alpha(col, (int)((col >> 24) * 0.35f)), 3.4f);
+		dl->AddLine(p[pr[0]], p[pr[1]], col, 1.4f);
+	}
+
+	if (ok[SK_Head]) {
+		dl->AddCircle(p[SK_Head], 4.5f, col, 24, 1.3f);
+	}
+}
+
+// ----------------------------------------------------------------------------
 // WATERMARK (una vez por frame)
 // ----------------------------------------------------------------------------
 void Watermark(ImDrawList* dl, int screenW) {
@@ -198,9 +250,14 @@ namespace ESP {
 		const float fadeBase = 1.30f / range;
 
 		const bool anyVisual = vis.Lines || vis.HealthBar || vis.FilledBox ||
-			vis.Box || vis.Name || vis.Distance;
+			vis.Box || vis.Name || vis.Distance || vis.Skeleton;
 
 		if (vis.Watermark) Watermark(dl, W);
+
+		// Esqueleto del personaje local (se dibuja aunque no haya enemigos)
+		if (vis.LocalSkeleton) {
+			DrawSkeleton(dl, cfg.LocalSkeleton, Col4(vis.SkeletonColor), cfg.ViewMatrix, W, H);
+		}
 
 		if (anyVisual) {
 			for (auto& [entityID, p] : cfg.Entities) {
@@ -281,6 +338,10 @@ namespace ESP {
 				// Barra de vida (vertical, izquierda)
 				if (vis.HealthBar)
 					HealthBar(entityID, p.Health, 200, ImVec2(boxX - 8.0f, top.y), bot.y - top.y);
+
+				// Esqueleto
+				if (vis.Skeleton)
+					DrawSkeleton(dl, p.Skeleton, FadeAlpha(Col4(vis.SkeletonColor), fade), cfg.ViewMatrix, W, H);
 
 				// Nombre + distancia
 				if (vis.Name || vis.Distance) {

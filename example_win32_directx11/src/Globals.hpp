@@ -72,6 +72,10 @@ public:
     struct Silent {
         bool Enabled = false;
         Config::HitBox HitBox = Config::HitBox::Head;
+        // Ajuste vertical de precision del silent: compensa la diferencia entre
+        // el bone Head del modelo y la cabeza visible en el juego. Calibrable
+        // desde la pestana AIMBOT (valor por defecto como el MemoryAim).
+        float HeadOffset = 0.12f;
     }
     Silent;
     struct Exploits {
@@ -87,6 +91,16 @@ public:
         bool TeleKill = false;
         int TeleKillKey = 0; // Começa como "None"
         float TeleKillDistance = 10.0f; //
+
+        // ---- EXPLOITS POR FRAME (pestana EXPLOITS) ----
+        bool FastSwitch = false;  // cambio de arma instantaneo
+        bool NoRecoil = false;    // sin retroceso
+        bool NoReload = false;    // sin recarga
+
+        // ---- TECLAS TOGGLE (presionar para activar/desactivar) ----
+        int FastSwitchKey = 0;
+        int NoRecoilKey = 0;
+        int NoReloadKey = 0;
 
     }
     Exploits;
@@ -163,6 +177,11 @@ public:
         bool IgnoreKnocked = false;   // filtro: no mostrar derribados
         bool OnlyVisible = false;     // filtro: solo enemigos visibles
 
+        // ---- Esqueleto (pestana ESP -> VISUALES) ----
+        bool Skeleton = false;        // huesos de los enemigos
+        bool LocalSkeleton = false;   // huesos del personaje local
+        float SkeletonColor[4] = { 0.f, 1.f, 0.5f, 1.f };
+
         // ---- Colores por grupo (pestana ESP -> COLORS) ----
         struct EspGroupColors {
             float Line[4] = { 1.f, 1.f, 1.f, 1.f };
@@ -202,6 +221,7 @@ public:
         bool Matrix = false;
         int Width = 0;
         int Height = 0;
+        Player::SkeletonBones LocalSkeleton;  // huesos del personaje local
     } EspConfig;
 
 };

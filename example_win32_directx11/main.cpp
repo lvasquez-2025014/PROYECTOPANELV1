@@ -23,6 +23,7 @@
 #include <EspLines/Memory/Memory.hpp>
 #include <EspLines/Offsets.hpp>
 #include <EspLines/Aimbot/SilentAim.hpp>
+#include <EspLines/Exploits/TeleKill.hpp>
 #include <EspLines/Features/Visuals/Visual.hpp>
 #include <src/adb/adb_utils.hpp>
 
@@ -369,6 +370,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 
     Cheat::Initialize();
 
+	// Hilo del TeleKill (lazy: revisa su propio switch dentro del loop)
+	TeleKill::Start();
+
 	while (!g_Globals.General.ShutDown) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
@@ -386,6 +390,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 	// Detener el hilo del silent aim antes de descargar la DLL
 	Aim::SilentAimStop();
 
+	// Detener el hilo del TeleKill (idempotente)
+	TeleKill::Stop();
+
 	closecmd();
     return 0;
 }
@@ -402,6 +409,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		// Detener el hilo del silent aim (idempotente): sin hilos vivos
 		// cuando la DLL se desmapea.
 		Aim::SilentAimStop();
+		TeleKill::Stop();
         break;
     }
     return TRUE;

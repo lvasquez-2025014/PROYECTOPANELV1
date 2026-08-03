@@ -6,6 +6,9 @@
 #include <EspLines/Aimbot/MemoryAim.hpp>
 #include <EspLines/Aimbot/RageAimbot.hpp>
 #include <EspLines/Aimbot/SilentAim.hpp>
+#include <EspLines/Exploits/FastSwitch.hpp>
+#include <EspLines/Exploits/NoRecoil.hpp>
+#include <EspLines/Exploits/NoReload.hpp>
 #define NOMINMAX
 #include <Windows.h>
 #undef min
@@ -17,6 +20,12 @@ namespace FWork {
 // ============================================================================
 // FLUJO PRINCIPAL: SE EJECUTA CADA FRAME
 // ============================================================================
+
+// Prototipos (definidos mas abajo en este archivo)
+static void ReadBone(uint32_t entity, uintptr_t boneOffs, Vector3& out);
+static void ReadEntitySkeleton(uint32_t entity, Player::SkeletonBones& s);
+static void UpdateExploitKeys();
+
 void Data::Work() {
     // --- 1. Obtener el juego actual ---
     GameContext ctx;
@@ -53,8 +62,23 @@ void Data::Work() {
         return;
     }
 
+    // --- 4b. Teclas toggle de las funciones activas ---
+    UpdateExploitKeys();
+
     // --- 5. Procesar todas las entidades (jugadores) de la partida ---
     ProcessEntities(ctx);
+
+    // --- 5b. Esqueleto del personaje local (solo si el switch esta activo) ---
+    if (g_Globals.Visuals.LocalSkeleton) {
+        ReadEntitySkeleton(ctx.localPlayer, g_Globals.EspConfig.LocalSkeleton);
+    }
+
+    // --- 5c. Exploits por frame (FastSwitch / NoRecoil / NoReload) ---
+    FastSwitch::OnFrame(ctx.localPlayer);
+    uint32_t weaponAddr = Mem.Read<uint32_t>(ctx.localPlayer + Offsets::Weapon);
+    NoRecoil::OnFrame(ctx.localPlayer, weaponAddr);
+    uint32_t playerAttrs = Mem.Read<uint32_t>(ctx.localPlayer + Offsets::LocalPlayerAttributes);
+    NoReload::OnFrame(ctx.localPlayer, playerAttrs);
 
     // --- 6. Actualizar los aimbots con la lista de entidades ---
     // El hilo del silent aim arranca aqui (lazy), con la memoria verificada.
@@ -121,6 +145,56 @@ bool Data::SetupLocalPlayerAndCamera(uint32_t currentMatch) {
     g_Globals.EspConfig.ViewMatrix = Mem.Read<Matrix4x4>(cameraBase + Offsets::ViewMatrix);
     g_Globals.EspConfig.Matrix = true;
     return true;
+}
+
+// ============================================================================
+// TECLAS TOGGLE DE LAS FUNCIONES ACTIVAS: presionar la tecla asignada
+// enciende/apaga el switch correspondiente (pestana EXPLOITS).
+// ============================================================================
+static void UpdateExploitKeys() {
+    static bool pFs = false, pNr = false, pNl = false, pTk = false;
+    auto toggle = [](int key, bool& prev, bool& flag) {
+        if (key == 0) return;
+        bool down = (GetAsyncKeyState(key) & 0x8000) != 0;
+        if (down && !prev) flag = !flag;
+        prev = down;
+    };
+    toggle(g_Globals.Exploits.FastSwitchKey, pFs, g_Globals.Exploits.FastSwitch);
+    toggle(g_Globals.Exploits.NoRecoilKey, pNr, g_Globals.Exploits.NoRecoil);
+    toggle(g_Globals.Exploits.NoReloadKey, pNl, g_Globals.Exploits.NoReload);
+    toggle(g_Globals.Exploits.TeleKillKey, pTk, g_Globals.Exploits.TeleKill);
+}
+
+// ============================================================================
+// LEER UN HUESO DEL ESQUELETO (address del nodo -> posicion mundial)
+// ============================================================================
+static void ReadBone(uint32_t entity, uintptr_t boneOffs, Vector3& out) {
+    uint32_t boneAddr = 0;
+    if (Mem.Read(entity + boneOffs, boneAddr) && boneAddr) {
+        TransformUtils::GetNodePosition(boneAddr, out);
+    }
+}
+
+// ============================================================================
+// LEER EL ESQUELETO COMPLETO DE UN JUGADOR (solo con el ESP skeleton activo)
+// ============================================================================
+static void ReadEntitySkeleton(uint32_t entity, Player::SkeletonBones& s) {
+    ReadBone(entity, Offsets::Bones::Head, s.Head);
+    ReadBone(entity, Offsets::Bones::Neck, s.Neck);
+    ReadBone(entity, Offsets::Bones::Spine, s.Spine);
+    ReadBone(entity, Offsets::Bones::Pelvis, s.Pelvis);
+    ReadBone(entity, Offsets::Bones::LeftShoulder, s.LeftShoulder);
+    ReadBone(entity, Offsets::Bones::LeftElbow, s.LeftElbow);
+    ReadBone(entity, Offsets::Bones::LeftHand, s.LeftHand);
+    ReadBone(entity, Offsets::Bones::RightShoulder, s.RightShoulder);
+    ReadBone(entity, Offsets::Bones::RightElbow, s.RightElbow);
+    ReadBone(entity, Offsets::Bones::RightHand, s.RightHand);
+    ReadBone(entity, Offsets::Bones::LeftKnee, s.LeftKnee);
+    ReadBone(entity, Offsets::Bones::LeftAnkle, s.LeftAnkle);
+    ReadBone(entity, Offsets::Bones::LeftFoot, s.LeftFoot);
+    ReadBone(entity, Offsets::Bones::RightKnee, s.RightKnee);
+    ReadBone(entity, Offsets::Bones::RightAnkle, s.RightAnkle);
+    ReadBone(entity, Offsets::Bones::RightFoot, s.RightFoot);
 }
 
 // ============================================================================
@@ -257,6 +331,13 @@ void Data::ProcessEntities(const GameContext& ctx) {
             }
 
             // ==================================================================
+            // ESQUELETO COMPLETO (solo si el ESP skeleton esta activo)
+            // ==================================================================
+            if (g_Globals.Visuals.Skeleton) {
+                ReadEntitySkeleton(entity, player.Skeleton);
+            }
+
+            // ==================================================================
             // DISTANCIA AL JUGADOR LOCAL (usa Head, o Hip como respaldo)
             // ==================================================================
             Vector3 refPos = (player.Head != Vector3::Zero()) ? player.Head : player.Hip;
@@ -294,6 +375,7 @@ void Data::ProcessEntities(const GameContext& ctx) {
 // ============================================================================
 void Data::Reset() {
     g_Globals.EspConfig.Entities.clear();
+    g_Globals.EspConfig.LocalSkeleton = Player::SkeletonBones{};
 }
 
 } // namespace FWork

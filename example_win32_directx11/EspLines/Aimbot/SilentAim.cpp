@@ -156,14 +156,18 @@ namespace Aim {
             return;
         }
 
-        // Posicion de salida del proyectil StartPosition (0x38)
-        Vector3 bulletPos;
-        if (!Mem.Read<Vector3>(aimInstance + Offsets::StartPosition, bulletPos) || !IsFiniteVector(bulletPos)) {
-            g_valid = false;
-            return;
-        }
+        // ==================================================================
+        // DIRECCION DEL RAYO: se calcula desde la CAMARA (origen real del
+        // rayo del juego), no desde la posicion del canon (StartPosition).
+        // Usar el canon como origen desviaba el impacto verticalmente al
+        // apuntar en angulo: las balas caian al pecho/otro lado.
+        // El offset HeadOffset calibra la diferencia entre el bone Head del
+        // modelo y la cabeza visible (igual que el MemoryAim con +0.12).
+        // ==================================================================
+        Vector3 aimPos = aimPosition;
+        aimPos.Y += g_Globals.Silent.HeadOffset;
 
-        Vector3 direction = aimPosition - bulletPos;
+        Vector3 direction = aimPos - g_Globals.EspConfig.MainCamera;
         if (!IsFiniteVector(direction)) {
             g_valid = false;
             return;
@@ -193,19 +197,21 @@ namespace Aim {
     }
 
     // ====================================================================
-    // HILO DE ESCRITURA (cadencia 0.001ms = 1us): escribe la direccion
-    // compartida en RayDir de ambas instancias con PGMPhysSimpleWriteGCPhys
-    // directo (HookWrite), SIN pasar por la cache ni estructuras compartidas.
-    // Bucle de espera por spin (sin sleep): cada ~1us se reescribe RayDir,
-    // de modo que en el instante del disparo el valor siempre es el nuestro.
+    // HILO DE ESCRITURA: escribe la direccion compartida en RayDir de
+    // ambas instancias con PGMPhysSimpleWriteGCPhys directo (HookWrite),
+    // SIN pasar por la cache ni estructuras compartidas.
+    // Optimizado para no robar FPS:
+    //  - Sin target (g_valid == false): duerme, NO quema CPU.
+    //  - Con target: escrituras en rafaga cada ~20us con espera por QPC
+    //    (sin sleep), suficiente cobertura para el instante del disparo.
+    //  - Sin timeBeginPeriod: el loop usa QPC, no el timer del sistema.
     // ====================================================================
     static void Worker() {
-        timeBeginPeriod(1); // resolucion del timer del sistema a 1 ms
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
         LARGE_INTEGER freq;
         QueryPerformanceFrequency(&freq);
-        const LONGLONG step = freq.QuadPart / 1000000; // 0.001 ms en ticks
+        const LONGLONG step = freq.QuadPart / 50000; // 20 us de cadencia
 
         while (g_running) {
             try {
@@ -217,23 +223,25 @@ namespace Aim {
                         for (int i = 0; i < 60; i++)
                             Mem.HookWrite(Mem.pVMAddr, g_altPhys, (void*)&dir, sizeof(Vector3));
                     }
-                }
 
-                // Espera de ~0.001 ms (spin, sin sleep)
-                LARGE_INTEGER now;
-                QueryPerformanceCounter(&now);
-                LONGLONG target = now.QuadPart + step;
-                do {
+                    // Espera de ~20 us (spin, sin sleep)
+                    LARGE_INTEGER now;
                     QueryPerformanceCounter(&now);
-                    _mm_pause();
-                } while (now.QuadPart < target && g_running);
+                    LONGLONG target = now.QuadPart + step;
+                    do {
+                        QueryPerformanceCounter(&now);
+                        _mm_pause();
+                    } while (now.QuadPart < target && g_running);
+                }
+                else {
+                    // Sin target activo: dormir para no consumir CPU
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
+                }
             }
             catch (...) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         }
-
-        timeEndPeriod(1);
     }
 
     void SilentAimStart() {
