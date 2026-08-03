@@ -115,16 +115,15 @@ public:
 
         // ---- UNDER PLAYER (hundirse bajo el jugador) ----
         bool UnderPlayer = false;
-        int UnderPlayerKey = 0; // tecla: volver a la posicion original
+        int UnderPlayerKey = 0; // tecla: activar/desactivar (hundirse/volver)
 
-        // ---- PULL PLAYER (jalar enemigos al disparar) ----
+        // ---- PULL PLAYER (jalar enemigos a la mira) ----
         bool PullPlayer = false;
-        int PullPlayerKey = 0;     // tecla: mantener para jalar (ademas de disparar)
-        int PullBone = 0;          // 0=Head, 1=Spine, 2=Root
+        int PullPlayerKey = 0;     // tecla: activar/desactivar la funcion
+        int PullBone = 0;          // 0=Head, 1=Hip, 2=Root
         float PullDistance = 10.0f;  // alcance maximo en metros
         float MinPullDistance = 1.0f; // distancia minima para no jalar a quien esta encima
         float PullScreenRange = 150.0f; // px desde el centro de la pantalla
-        float PullSmooth = 1.0f;     // velocidad del jale (mas alto = mas rapido)
 
         // ---- TECLAS TOGGLE (presionar para activar/desactivar) ----
         int FastSwitchKey = 0;

@@ -1130,20 +1130,20 @@ static void ExploitsTab(ImDrawList* dl, float pulse)
 			&g_Globals.Exploits.SpeedTimer, COL_GREEN, pulse);
 		SliderRow(rdl, "##ExStM", "Velocidad", "%.1fx",
 			&g_Globals.Exploits.SpeedMultiplier, 1.0f, 5.0f, COL_GREEN, pulse);
-		RowToggle(rdl, "##ExUp", "Under Player", "Hundete 0.7m bajo el suelo",
+		RowToggle(rdl, "##ExUp", "Under Player", "Tecla: hundir y volver",
 			&g_Globals.Exploits.UnderPlayer, COL_GREEN, pulse);
-		KeyBindRow(rdl, "##ExUpK", "Tecla volver", "Vuelve a tu posicion original",
+		KeyBindRow(rdl, "##ExUpK", "Tecla activar", "Alterna hundido / visible",
 			&g_Globals.Exploits.UnderPlayerKey, COL_GREEN, pulse);
-		RowToggle(rdl, "##ExPp", "Pull Player", "Jala al enemigo al disparar",
+		RowToggle(rdl, "##ExPp", "Pull Player", "Jala enemigos a tu mira",
 			&g_Globals.Exploits.PullPlayer, COL_GREEN, pulse);
-		KeyBindRow(rdl, "##ExPpK", "Tecla pull", "Mantener para jalar sin disparar",
+		KeyBindRow(rdl, "##ExPpK", "Tecla activar", "Alterna jalar al disparar/apuntar",
 			&g_Globals.Exploits.PullPlayerKey, COL_GREEN, pulse);
 		TriSelector(rdl, "##ExPpB", "Hueso", &g_Globals.Exploits.PullBone,
-			"HEAD", "SPINE", "ROOT", COL_GREEN, pulse);
+			"HEAD", "HIP", "ROOT", COL_GREEN, pulse);
 		SliderRow(rdl, "##ExPpD", "Alcance", "%0.1f m",
 			&g_Globals.Exploits.PullDistance, 1.0f, 50.0f, COL_GREEN, pulse);
-		SliderRow(rdl, "##ExPpS", "Suavidad", "%.1fx",
-			&g_Globals.Exploits.PullSmooth, 0.5f, 4.0f, COL_GREEN, pulse);
+		SliderRow(rdl, "##ExPpR", "Rango mira", "%0.0f px",
+			&g_Globals.Exploits.PullScreenRange, 30.0f, 400.0f, COL_GREEN, pulse);
 	}
 	ImGui::EndChild();
 }
