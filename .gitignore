@@ -1,0 +1,16 @@
+# Build artifacts
+x64/
+.vs/
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+*.sln.docstates
+
+# Output DLLs / executables
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.obj
+*.log
