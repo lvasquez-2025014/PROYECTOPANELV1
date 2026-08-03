@@ -273,7 +273,12 @@ namespace Cheat {
 				ImGui::Render();
 				FWork::Overlay::dxRefresh();
 				ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-				FWork::Overlay::dxGetSwapChain()->Present(0, 0);
+				// Present(1, 0) = vsync: cada vblank muestra un frame completo del overlay.
+				// Presentar sin sincronizar (0, 0) a ~120 FPS sobre un emulador a 60 Hz
+				// alterna los buffers en momentos arbitrarios del refresco y DWM compone
+				// el overlay por-pixel-alfa con buffers viejos/medio dibujados: eso provoca
+				// el ghosting y parpadeo de las ESP en pantalla completa.
+				FWork::Overlay::dxGetSwapChain()->Present(1, 0);
 
 				if (g_Globals.General.ShutDown) {
 					Unload();
@@ -301,7 +306,17 @@ namespace Cheat {
 
 					auto Now = std::chrono::steady_clock::now();
 					double elapsed = std::chrono::duration<double, std::milli>(Now - FrameStart).count();
-					const double TargetFrameMs = 1000.0 / 120.0;
+					// Limite = refresco real del monitor (60/120/144/240...): un frame por
+					// vblank, igual que el Present con vsync. Fallback a 120 si falla.
+					static double TargetFrameMs = 0.0;
+					if (TargetFrameMs <= 0.0) {
+						DEVMODEW dm = {};
+						dm.dmSize = sizeof(dm);
+						DWORD refresh = 0;
+						if (EnumDisplaySettingsW(nullptr, ENUM_CURRENT_SETTINGS, &dm) && dm.dmDisplayFrequency > 0)
+							refresh = dm.dmDisplayFrequency;
+						TargetFrameMs = refresh > 0 ? (1000.0 / (double)refresh) : (1000.0 / 120.0);
+					}
 					double remain = TargetFrameMs - elapsed;
 					if (remain > 0.0) {
 						if (g_HiResTimer) {

@@ -4,6 +4,7 @@
 #include <EspLines/Offsets.hpp>
 #include <EspLines/Math/TMatrix.hpp>
 #include <EspLines/Aimbot/MemoryAim.hpp>
+#include <EspLines/Aimbot/RageAimbot.hpp>
 #define NOMINMAX
 #include <Windows.h>
 #undef min
@@ -54,8 +55,9 @@ void Data::Work() {
     // --- 5. Procesar todas las entidades (jugadores) de la partida ---
     ProcessEntities(ctx);
 
-    // --- 6. Actualizar el aimbot con la lista de entidades ---
+    // --- 6. Actualizar los aimbots con la lista de entidades ---
     Aim::MemoryAimWork();
+    Aim::RageAimbot::Aimbot();
 }
 
 // ============================================================================
@@ -171,10 +173,24 @@ void Data::ProcessEntities(const GameContext& ctx) {
             if (avatar) {
                 player.IsVisible = Mem.Read<bool>(avatar + Offsets::Avatar_IsVisible);
             }
+            else {
+                player.IsVisible = false;
+            }
+
             if (avatarData) {
                 player.IsTeam = Mem.Read<bool>(avatarData + Offsets::Avatar_Data_IsTeam)
                     ? Player::Bool3::True : Player::Bool3::False;
             }
+            else {
+                player.IsTeam = Player::Bool3::Unknown;
+            }
+
+            // Flags de bot de los offsets nuevos (se combinan con la heuristica del nombre)
+            bool botFlag = false;
+            if (avatarData && Mem.Read<bool>(avatarData + Offsets::Avatar_Data_IsBot, botFlag) && botFlag)
+                player.IsBot = true;
+            if (Mem.Read<bool>(entity + Offsets::IsClientBot, botFlag) && botFlag)
+                player.IsBot = true;
 
             // ==================================================================
             // ESTADOS DE VIDA (muerto / derribado)
@@ -210,6 +226,12 @@ void Data::ProcessEntities(const GameContext& ctx) {
                 if (nameLen > 0 && nameLen < 128) {
                     player.Name = Mem.String(nameAddr + 0xC, nameLen * 2, true);
                     player.IsKnown = true;
+                    // Heuristica por nombre: los bots del juego usan "Player" + solo digitos
+                    const std::string& n = player.Name;
+                    if (n.size() >= 7 && n.compare(0, 6, "Player") == 0) {
+                        player.IsBot = player.IsBot ||
+                            (n.find_first_not_of("0123456789", 6) == std::string::npos);
+                    }
                 }
             }
 
@@ -219,6 +241,9 @@ void Data::ProcessEntities(const GameContext& ctx) {
             uint32_t boneAddr = 0;
             if (Mem.Read(entity + Offsets::Bones::Head, boneAddr) && boneAddr) {
                 TransformUtils::GetNodePosition(boneAddr, player.Head);
+            }
+            if (Mem.Read(entity + Offsets::Bones::Neck, boneAddr) && boneAddr) {
+                TransformUtils::GetNodePosition(boneAddr, player.Neck);
             }
             if (Mem.Read(entity + Offsets::Bones::Hip, boneAddr) && boneAddr) {
                 TransformUtils::GetNodePosition(boneAddr, player.Hip);

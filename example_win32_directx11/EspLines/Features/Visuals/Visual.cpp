@@ -160,7 +160,7 @@ void Watermark(ImDrawList* dl, int screenW) {
 	static float t = 0.0f;
 	t += ImGui::GetIO().DeltaTime;
 
-	const char* txt = "FREE";
+	const char* txt = "ASMODEUS";
 	const float fs = 30.0f;
 	const ImVec2 sz = font->CalcTextSizeA(fs, FLT_MAX, 0.0f, txt);
 	const ImVec2 p((float)(screenW - (int)sz.x) * 0.5f, 72.0f);
@@ -210,6 +210,11 @@ namespace ESP {
 				const float dist = p.Distance;
 				if (dist < 1.0f || dist > range) continue;
 
+				// Filtros configurables (pestana ESP -> CONFIGURACION)
+				if (vis.IgnoreBots && p.IsBot) continue;
+				if (vis.IgnoreKnocked && p.IsKnocked) continue;
+				if (vis.OnlyVisible && !p.IsVisible) continue;
+
 				// Predicción de movimiento (si el dato de posición es reciente)
 				Vector3 off = Vector3::Zero();
 				const float t = now - p.LastUpdateTime;
@@ -220,6 +225,14 @@ namespace ESP {
 				const Vector3 foot = (p.Root != Vector3::Zero() ? p.Root : p.Hip) + off;
 				const ImVec2 f = W2S::WorldToScreenImVec2(cfg.ViewMatrix, foot, W, H);
 				if (!IsFinitePos(h) || !IsFinitePos(f) || f.y <= h.y) continue;
+
+				// Guardia de proyeccion: descartar puntos fuera de la pantalla
+				// (una proyeccion corrupta daba rectangulos gigantes que cubrian
+				// todo el emulador con el relleno).
+				if (h.x < -300.0f || h.x > (float)W + 300.0f ||
+					h.y < -300.0f || h.y > (float)H + 300.0f ||
+					f.x < -300.0f || f.x > (float)W + 300.0f ||
+					f.y < -300.0f || f.y > (float)H + 300.0f) continue;
 
 				// Geometría de la box
 				float bh = f.y - h.y;
@@ -232,13 +245,22 @@ namespace ESP {
 
 				// Fade por distancia (las entidades lejanas son más tenues)
 				const float fade = ImClamp(1.0f - (dist - range * 0.3f) * fadeBase, 0.55f, 1.0f);
+				const float glowF = (float)vis.GlowIntensity / 100.0f;
 				const bool knocked = p.IsKnocked;
-				const ImU32 red = IM_COL32(255, 70, 70, 255);
+
+				// Color por grupo: knocked > bot > visible > normal
+				const auto& gc = knocked ? vis.ColKnocked
+					: (p.IsBot ? vis.ColBots
+						: (p.IsVisible ? vis.ColVisible : vis.ColNormal));
 
 				// Línea snap (hacia arriba o abajo)
 				if (vis.Lines) {
-					const ImVec2 anchor = (vis.EspLines == 2) ? ImVec2(hw, (float)H) : ImVec2(hw, 0.0f);
-					SnapLine(dl, top, anchor, FadeAlpha(knocked ? red : Col4(vis.LinesColor), fade));
+					const bool toBottom = (vis.EspLines == 2);
+					const ImVec2 anchor = toBottom ? ImVec2(hw, (float)H) : ImVec2(hw, 0.0f);
+					const ImVec2 src = toBottom ? bot : top;
+					const ImU32 lc = FadeAlpha(Col4(gc.Line), fade);
+					SnapLine(dl, src, anchor, lc);
+					if (vis.Glow) dl->AddLine(src, anchor, Alpha(lc, (int)(10.0f + glowF * 55.0f)), 3.0f);
 				}
 
 				// Relleno
@@ -246,13 +268,14 @@ namespace ESP {
 					dl->AddRectFilled(
 						ImVec2(boxX, top.y),
 						ImVec2(boxX + bw, bot.y),
-						FadeAlpha(Col4(vis.Filledboxcolor), fade));
+						FadeAlpha(Col4(gc.Fill), fade));
 
 				// Caja con esquinas + halo
 				if (vis.Box) {
-					const ImU32 bc = FadeAlpha(knocked ? red : Col4(vis.BoxColor), fade);
+					const ImU32 bc = FadeAlpha(Col4(gc.Box), fade);
 					CornerBox(dl, boxX - 1.0f, top.y - 1.0f, bw + 2.0f, bot.y - top.y + 2.0f, Alpha(bc, 22), 1.0f);
 					CornerBox(dl, boxX, top.y, bw, bot.y - top.y, bc, 1.2f);
+					if (vis.Glow) CornerBox(dl, boxX, top.y, bw, bot.y - top.y, Alpha(bc, (int)(14.0f + glowF * 46.0f)), 3.5f);
 				}
 
 				// Barra de vida (vertical, izquierda)
@@ -269,7 +292,7 @@ namespace ESP {
 					}
 					if (n == 0) { nb[0] = '?'; n = 1; }
 					nb[n] = 0;
-					NameAndDist(dl, nb, dist, h.x, top.y - 3.0f);
+					NameAndDist(dl, nb, dist, top.x, top.y - 3.0f);
 				}
 			}
 		}

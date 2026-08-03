@@ -14,6 +14,13 @@ namespace Config {
         Peito
     };
 
+    // Hueso objetivo para el Memory Aim
+    enum class Bone {
+        Head,
+        Neck,
+        Hip
+    };
+
     struct MenuConfig {
 
         bool Opened = true;
@@ -49,6 +56,12 @@ public:
         int UpdateInterval = 10;
         float AimSmooth = 1.0f; // Suavização do Aimbot
         Config::HitBox HitBox = Config::HitBox::Head;
+
+        // ---- RAGE AIM (modo 2: fija el collider del enemigo) ----
+        bool RageAim = false;
+
+        // ---- TARGET del Memory Aim (hueso a apuntar) ----
+        Config::Bone TargetBone = Config::Bone::Head;
     }
     AimBot;
 
@@ -152,6 +165,24 @@ public:
 
         // Dentro do struct de Visuals
         bool Minimap = false;
+
+        // ---- Configuracion avanzada de ESP (pestana ESP -> SETTINGS) ----
+        bool Glow = false;            // halo resaltado en caja/linea
+        int GlowIntensity = 40;       // intensidad del halo (0-100)
+        bool IgnoreBots = false;      // filtro: no mostrar bots
+        bool IgnoreKnocked = false;   // filtro: no mostrar derribados
+        bool OnlyVisible = false;     // filtro: solo enemigos visibles
+
+        // ---- Colores por grupo (pestana ESP -> COLORS) ----
+        struct EspGroupColors {
+            float Line[4] = { 1.f, 1.f, 1.f, 1.f };
+            float Box[4] = { 1.f, 1.f, 1.f, 1.f };
+            float Fill[4] = { 0.f, 0.f, 0.f, 0.4f };
+        };
+        EspGroupColors ColNormal;
+        EspGroupColors ColBots;
+        EspGroupColors ColVisible;
+        EspGroupColors ColKnocked = { { 1.f, 0.35f, 0.35f, 1.f }, { 1.f, 0.35f, 0.35f, 1.f }, { 0.4f, 0.f, 0.f, 0.4f } };
 
     } Visuals;
 

@@ -302,10 +302,10 @@ static void SectionTitle(ImDrawList* dl, const char* title)
 }
 
 // Fila con toggle a la derecha
-static bool RowToggle(ImDrawList* dl, const char* switchId, const char* label, const char* sub, bool* v, ImU32 accent, float pulse)
+static bool RowToggle(ImDrawList* dl, const char* switchId, const char* label, const char* sub, bool* v, ImU32 accent, float pulse, float width = 0.0f)
 {
 	ImVec2 p = ImGui::GetCursorScreenPos();
-	float w = ImGui::GetContentRegionAvail().x;
+	float w = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
 	ImVec2 p0 = p + ImVec2(2, 0), p1 = p + ImVec2(w - 2, 44);
 
 	if (ImGui::IsMouseHoveringRect(p0, p1)) {
@@ -328,10 +328,10 @@ static bool RowToggle(ImDrawList* dl, const char* switchId, const char* label, c
 
 // Fila con slider
 template<typename T>
-static void SliderRow(ImDrawList* dl, const char* sliderId, const char* label, const char* fmt, T* v, T vmin, T vmax, ImU32 accent, float pulse)
+static void SliderRow(ImDrawList* dl, const char* sliderId, const char* label, const char* fmt, T* v, T vmin, T vmax, ImU32 accent, float pulse, float width = 0.0f)
 {
 	ImVec2 p = ImGui::GetCursorScreenPos();
-	float w = ImGui::GetContentRegionAvail().x;
+	float w = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
 
 	if (Fonts::InterSemiBold) ImGui::PushFont(Fonts::InterSemiBold);
 	dl->AddText(p + ImVec2(12, 8), COL_TEXT_MAIN, label);
@@ -347,6 +347,113 @@ static void SliderRow(ImDrawList* dl, const char* sliderId, const char* label, c
 	SliderTrack(dl, sliderId, p + ImVec2(12, 30), w - 24, v, vmin, vmax, accent, pulse);
 
 	ImGui::Dummy(ImVec2(0, 54));
+}
+
+// ============================================================================
+// SELECTOR DE TIPO (TOP / BOTTOM) para la posicion de la linea del ESP
+// ============================================================================
+static void TypeSelector(ImDrawList* dl, const char* id, const char* label, int* v, ImU32 accent, float pulse, float width = 0.0f)
+{
+	ImVec2 p = ImGui::GetCursorScreenPos();
+	float w = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
+
+	if (Fonts::InterSemiBold) ImGui::PushFont(Fonts::InterSemiBold);
+	dl->AddText(p + ImVec2(12, 8), COL_TEXT_MAIN, label);
+	if (Fonts::InterSemiBold) ImGui::PopFont();
+
+	const float h = 30.0f;
+	const float sw = (w - 24 - 6) * 0.5f;
+	const ImVec2 b0(p.x + 12, p.y + 28);
+	const char* opts[2] = { "TOP", "BOTTOM" };
+
+	for (int i = 0; i < 2; i++) {
+		ImRect r(b0 + ImVec2(i * (sw + 6), 0), b0 + ImVec2(i * (sw + 6) + sw, h));
+		const bool active = (*v == (i ? 2 : 1));
+		const bool hov = ImGui::IsMouseHoveringRect(r.Min, r.Max);
+		if (hov && !active) dl->AddRectFilled(r.Min, r.Max, IM_COL32(255, 255, 255, 5), 6.0f);
+		dl->AddRectFilled(r.Min, r.Max, active ? ((accent & 0x00FFFFFF) | (30u << 24)) : IM_COL32(20, 24, 22, 255), 6.0f);
+		dl->AddRect(r.Min, r.Max, active ? accent : IM_COL32(60, 70, 64, 255), 6.0f, ImDrawFlags_RoundCornersAll, 1.0f);
+
+		ImGui::PushID(i);
+		ImGuiID tid = ImGui::GetID(id);
+		ImGui::ItemSize(r);
+		if (ImGui::ItemAdd(r, tid)) {
+			bool thov, theld;
+			if (ImGui::ButtonBehavior(r, tid, &thov, &theld, ImGuiButtonFlags_PressedOnClick | ImGuiButtonFlags_NoHoldingActiveId)) {
+				*v = i ? 2 : 1;
+			}
+		}
+		ImGui::PopID();
+
+		if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
+		ImVec2 ts = ImGui::CalcTextSize(opts[i]);
+		dl->AddText(r.Min + ImVec2((r.GetWidth() - ts.x) * 0.5f, (r.GetHeight() - ts.y) * 0.5f), active ? accent : COL_TEXT_DIM, opts[i]);
+		if (Fonts::InterBold12) ImGui::PopFont();
+	}
+
+	ImGui::Dummy(ImVec2(0, h + 34));
+}
+
+// ============================================================================
+// FILA CON SELECTOR DE COLOR (swatch + popup color picker)
+// ============================================================================
+static ImU32 Col4(const float c[4])
+{
+	return IM_COL32(
+		(int)(c[0] * 255.0f),
+		(int)(c[1] * 255.0f),
+		(int)(c[2] * 255.0f),
+		(int)(c[3] * 255.0f));
+}
+
+static void RowColor(ImDrawList* dl, const char* id, const char* label, float col[4], ImU32 accent, float pulse, float width = 0.0f)
+{
+	ImVec2 p = ImGui::GetCursorScreenPos();
+	float w = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
+	ImVec2 p0 = p + ImVec2(2, 0), p1 = p + ImVec2(w - 2, 40);
+
+	if (ImGui::IsMouseHoveringRect(p0, p1)) {
+		dl->AddRectFilled(p0, p1, IM_COL32(255, 255, 255, 5), 6.0f);
+	}
+
+	if (Fonts::InterSemiBold) ImGui::PushFont(Fonts::InterSemiBold);
+	dl->AddText(p + ImVec2(12, 10), COL_TEXT_MAIN, label);
+	if (Fonts::InterSemiBold) ImGui::PopFont();
+
+	ImVec2 sw = p + ImVec2(w - 16 - 30, 9);
+	dl->AddRectFilled(sw, sw + ImVec2(30, 22), Col4(col), 4.0f);
+	dl->AddRect(sw, sw + ImVec2(30, 22), IM_COL32(60, 70, 64, 255), 4.0f, ImDrawFlags_RoundCornersAll, 1.0f);
+
+	ImGui::Dummy(ImVec2(0, 40));
+
+	ImGui::PushID(id);
+	if (ImGui::IsMouseClicked(0) && ImGui::IsMouseHoveringRect(p0, p1)) {
+		ImGui::OpenPopup("##cp");
+	}
+	if (ImGui::BeginPopup("##cp")) {
+		ImGui::ColorPicker4("##colp", col,
+			ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_DisplayRGB |
+			ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoInputs);
+		ImGui::EndPopup();
+	}
+	ImGui::PopID();
+}
+
+// Grupo de colores (Linea / Caja / Relleno) para un tipo de jugador
+static void GroupColors(ImDrawList* dl, const char* group, Globals::Visuals::EspGroupColors* gc, float pulse, float width)
+{
+	ImVec2 p = ImGui::GetCursorScreenPos();
+	if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
+	dl->AddText(p + ImVec2(12, 0), COL_GREEN_DIM, group);
+	if (Fonts::InterBold12) ImGui::PopFont();
+	dl->AddRectFilled(p + ImVec2(12, 15), p + ImVec2(12 + ImGui::CalcTextSize(group).x + 2, 16), COL_GREEN_DIM, 1.0f);
+	ImGui::Dummy(ImVec2(0, 22));
+
+	ImGui::PushID(group);
+	RowColor(dl, "##L", "Linea", gc->Line, COL_GREEN, pulse, width);
+	RowColor(dl, "##B", "Caja", gc->Box, COL_GREEN, pulse, width);
+	RowColor(dl, "##F", "Relleno", gc->Fill, COL_GREEN, pulse, width);
+	ImGui::PopID();
 }
 
 // ============================================================================
@@ -381,30 +488,311 @@ static void ComingSoonTab(ImDrawList* dl, float pulse)
 	ImGui::Dummy(ImVec2(0, 190));
 }
 
+// ============================================================================
+// TARJETA DE MODO (cabecera con icono, titulo, descripcion y estado)
+// ============================================================================
+static void ModeCardHeader(ImDrawList* dl, const char* title, const char* desc, const char* glyph, bool* enabled, float pulse, float width)
+{
+	ImVec2 p = ImGui::GetCursorScreenPos();
+	const float h = 64.0f;
+	ImU32 accent = *enabled ? COL_GREEN : COL_TEXT_DIM;
+
+	dl->AddRectFilled(p, p + ImVec2(width, h), *enabled ? IM_COL32(10, 26, 17, 255) : COL_BG_CARD, 10.0f);
+	dl->AddRect(p, p + ImVec2(width, h), *enabled ? ((COL_GREEN & 0x00FFFFFF) | (80u << 24)) : COL_BORDER, 10.0f, ImDrawFlags_RoundCornersAll, 1.0f);
+
+	if (*enabled) {
+		int ga = 120 + (int)(pulse * 60.0f);
+		dl->AddRectFilled(p + ImVec2(0, 12), p + ImVec2(3.0f, h - 12), (COL_GREEN & 0x00FFFFFF) | ((ImU32)ga << 24), 1.5f);
+	}
+
+	DrawIcon(dl, p + ImVec2(26, h * 0.5f), 12.0f, glyph, accent, Fonts::FontAwesomeSolid);
+
+	if (Fonts::InterSemiBold) ImGui::PushFont(Fonts::InterSemiBold);
+	dl->AddText(p + ImVec2(52, 12), *enabled ? COL_TEXT_MAIN : COL_TEXT_DIM, title);
+	if (Fonts::InterSemiBold) ImGui::PopFont();
+	if (Fonts::InterRegular14) ImGui::PushFont(Fonts::InterRegular14);
+	dl->AddText(p + ImVec2(52, 34), COL_TEXT_MUTED, desc);
+	if (Fonts::InterRegular14) ImGui::PopFont();
+
+	if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
+	const char* st = *enabled ? "ON" : "OFF";
+	ImVec2 ss = ImGui::CalcTextSize(st);
+	dl->AddText(p + ImVec2(width - 16 - ss.x, 24), *enabled ? COL_GREEN : COL_TEXT_MUTED, st);
+	if (Fonts::InterBold12) ImGui::PopFont();
+
+	ImGui::Dummy(ImVec2(0, h + 10));
+}
+
+// ============================================================================
+// NOMBRE LEGIBLE DE UNA TECLA VK
+// ============================================================================
+static const char* KeyName(int vk)
+{
+	switch (vk) {
+	case VK_LBUTTON: return "CLICK IZQ";
+	case VK_RBUTTON: return "CLICK DER";
+	case VK_MBUTTON: return "RUEDA";
+	case VK_INSERT:  return "INSERT";
+	case VK_SPACE:   return "SPACE";
+	case VK_SHIFT:   return "SHIFT";
+	case VK_CONTROL: return "CTRL";
+	case VK_MENU:    return "ALT";
+	case VK_TAB:     return "TAB";
+	case VK_ESCAPE:  return "ESC";
+	case VK_RETURN:  return "ENTER";
+	case VK_BACK:    return "SUPR";
+	case VK_UP:      return "ARRIBA";
+	case VK_DOWN:    return "ABAJO";
+	case VK_LEFT:    return "IZQUIERDA";
+	case VK_RIGHT:   return "DERECHA";
+	default:
+		if (vk >= 'A' && vk <= 'Z') {
+			static char b[2] = { (char)vk, 0 };
+			return b;
+		}
+		if (vk >= '0' && vk <= '9') {
+			static char b[2] = { (char)vk, 0 };
+			return b;
+		}
+		if (vk >= VK_F1 && vk <= VK_F24) {
+			static char b[8];
+			ImFormatString(b, sizeof(b), "F%d", vk - VK_F1 + 1);
+			return b;
+		}
+		return "TECLA";
+	}
+}
+
+// ============================================================================
+// FILA CON CAPTURA DE TECLA (badge + captura por polling)
+// ============================================================================
+static bool KeyBindRow(ImDrawList* dl, const char* rowId, const char* label, const char* sub, int* v, ImU32 accent, float pulse, float width = 0.0f)
+{
+	static std::map<ImGuiID, bool> capturing;
+	static std::map<ImGuiID, float> captureStart;
+
+	ImVec2 p = ImGui::GetCursorScreenPos();
+	float w = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
+	ImVec2 p0 = p + ImVec2(2, 0), p1 = p + ImVec2(w - 2, 44);
+
+	if (ImGui::IsMouseHoveringRect(p0, p1))
+		dl->AddRectFilled(p0, p1, IM_COL32(255, 255, 255, 5), 6.0f);
+
+	if (Fonts::InterSemiBold) ImGui::PushFont(Fonts::InterSemiBold);
+	dl->AddText(p + ImVec2(12, 6), COL_TEXT_MAIN, label);
+	if (Fonts::InterSemiBold) ImGui::PopFont();
+
+	if (sub && Fonts::InterRegular14) {
+		ImGui::PushFont(Fonts::InterRegular14);
+		dl->AddText(p + ImVec2(12, 26), COL_TEXT_DIM, sub);
+		ImGui::PopFont();
+	}
+
+	ImGui::PushID(rowId);
+	ImGuiID rid = ImGui::GetID("##key");
+	const bool cap = capturing[rid];
+	float& capT = captureStart[rid];
+
+	const ImVec2 bw = p + ImVec2(w - 16 - 74, 9);
+	const ImVec2 bs(74, 26);
+	const bool hovBadge = ImGui::IsMouseHoveringRect(bw, bw + bs);
+	dl->AddRectFilled(bw, bw + bs, cap ? IM_COL32(10, 26, 17, 255) : IM_COL32(20, 24, 22, 255), 6.0f);
+	dl->AddRect(bw, bw + bs, cap ? accent : (hovBadge ? IM_COL32(90, 100, 94, 255) : IM_COL32(60, 70, 64, 255)), 6.0f, ImDrawFlags_RoundCornersAll, 1.0f);
+
+	if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
+	const char* kn = cap ? "..." : KeyName(*v);
+	ImVec2 ks = ImGui::CalcTextSize(kn);
+	dl->AddText(bw + ImVec2((bs.x - ks.x) * 0.5f, (bs.y - ks.y) * 0.5f - 1.0f), cap ? accent : COL_TEXT_MAIN, kn);
+	if (Fonts::InterBold12) ImGui::PopFont();
+
+	ImGui::Dummy(ImVec2(0, 44));
+
+	if (cap) {
+		// Pulsar el badge otra vez cancela la captura
+		if (ImGui::IsMouseClicked(0) && hovBadge) {
+			capturing[rid] = false;
+		}
+		else {
+			float now = (float)GetTickCount64() / 1000.0f;
+			for (int key = 0x01; key < 0xFE; key++) {
+				if (key == VK_LSHIFT || key == VK_RSHIFT || key == VK_LCONTROL ||
+					key == VK_RCONTROL || key == VK_LMENU || key == VK_RMENU ||
+					key == VK_LWIN || key == VK_RWIN) continue;
+				// Botones del raton: ignorar sobre el badge o justo tras activar
+				if (key >= VK_LBUTTON && key <= VK_MBUTTON && (hovBadge || now - capT < 0.25f)) continue;
+				if (GetAsyncKeyState(key) & 0x8000) {
+					*v = key;
+					capturing[rid] = false;
+					break;
+				}
+			}
+		}
+	}
+	else if (ImGui::IsMouseClicked(0) && hovBadge) {
+		capturing[rid] = true;
+		capT = (float)GetTickCount64() / 1000.0f;
+	}
+
+	ImGui::PopID();
+	return cap;
+}
+
+// ============================================================================
+// SELECTOR DE HUESO OBJETIVO (HEAD / NECK / HIP)
+// ============================================================================
+static void BoneSelector(ImDrawList* dl, const char* id, const char* label, Config::Bone* v, ImU32 accent, float pulse, float width = 0.0f)
+{
+	ImVec2 p = ImGui::GetCursorScreenPos();
+	float w = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
+
+	if (Fonts::InterSemiBold) ImGui::PushFont(Fonts::InterSemiBold);
+	dl->AddText(p + ImVec2(12, 8), COL_TEXT_MAIN, label);
+	if (Fonts::InterSemiBold) ImGui::PopFont();
+
+	const float h = 30.0f;
+	const float sw = (w - 24 - 12) / 3.0f;
+	const ImVec2 b0(p.x + 12, p.y + 28);
+	const char* opts[3] = { "HEAD", "NECK", "HIP" };
+
+	for (int i = 0; i < 3; i++) {
+		ImRect r(b0 + ImVec2(i * (sw + 6), 0), b0 + ImVec2(i * (sw + 6) + sw, h));
+		const bool active = ((int)*v == i);
+		const bool hov = ImGui::IsMouseHoveringRect(r.Min, r.Max);
+		if (hov && !active) dl->AddRectFilled(r.Min, r.Max, IM_COL32(255, 255, 255, 5), 6.0f);
+		dl->AddRectFilled(r.Min, r.Max, active ? ((accent & 0x00FFFFFF) | (30u << 24)) : IM_COL32(20, 24, 22, 255), 6.0f);
+		dl->AddRect(r.Min, r.Max, active ? accent : IM_COL32(60, 70, 64, 255), 6.0f, ImDrawFlags_RoundCornersAll, 1.0f);
+
+		ImGui::PushID(i);
+		ImGuiID tid = ImGui::GetID(id);
+		ImGui::ItemSize(r);
+		if (ImGui::ItemAdd(r, tid)) {
+			bool thov, theld;
+			if (ImGui::ButtonBehavior(r, tid, &thov, &theld, ImGuiButtonFlags_PressedOnClick | ImGuiButtonFlags_NoHoldingActiveId)) {
+				*v = (Config::Bone)i;
+			}
+		}
+		ImGui::PopID();
+
+		if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
+		ImVec2 ts = ImGui::CalcTextSize(opts[i]);
+		dl->AddText(r.Min + ImVec2((r.GetWidth() - ts.x) * 0.5f, (r.GetHeight() - ts.y) * 0.5f), active ? accent : COL_TEXT_DIM, opts[i]);
+		if (Fonts::InterBold12) ImGui::PopFont();
+	}
+
+	ImGui::Dummy(ImVec2(0, h + 34));
+}
+
+// ============================================================================
+// PESTAÑA AIMBOT: dos modos (MEMORY AIM y RAGE AIM) en columnas
+// ============================================================================
 static void AimbotTab(ImDrawList* dl, float pulse)
 {
-	ComingSoonTab(dl, pulse);
+	(void)dl;
+	float availW = ImGui::GetContentRegionAvail().x;
+	const float colGap = 32.0f;
+	const float colW = (availW - colGap) * 0.5f;
+
+	// ==================== FOV COMPARTIDO (sirve para ambos aimbots) ====================
+	SectionTitle(dl, "FOV");
+	SliderRow(dl, "##AimFov", "Radio del aimbot", "%d px",
+		&g_Globals.AimBot.DistanceAim, 50, 500, COL_GREEN, pulse);
+	ImGui::Dummy(ImVec2(0, 8));
+
+	float colH = ImGui::GetContentRegionAvail().y;
+
+	// ==================== COLUMNA IZQUIERDA: MEMORY AIM ====================
+	ImGui::BeginChild("##AimLeft", ImVec2(colW, colH), false, ImGuiWindowFlags_NoBackground);
+	{
+		ImDrawList* ldl = ImGui::GetWindowDrawList();
+
+		ModeCardHeader(ldl, "MEMORY AIM", "Escritura de rotacion en memoria", "\uF05B",
+			&g_Globals.AimBot.MemoryAim, pulse, colW);
+		RowToggle(ldl, "##AimMa", "Aimbot Memoria", "Rota la camara hacia el enemigo",
+			&g_Globals.AimBot.MemoryAim, COL_GREEN, pulse);
+		KeyBindRow(ldl, "##AimMaK", "Tecla de activacion", "Mantener pulsada para aimear",
+			&g_Globals.AimBot.AimbotBind, COL_GREEN, pulse);
+		BoneSelector(ldl, "##AimMaB", "TARGET (BONE)", &g_Globals.AimBot.TargetBone, COL_GREEN, pulse);
+		RowToggle(ldl, "##AimMaKn", "Ignorar Derribados", "No aimear a jugadores knocked",
+			&g_Globals.AimBot.IgnoreKnocked, COL_GREEN, pulse);
+		RowToggle(ldl, "##AimMaBt", "Ignorar Bots", "No aimear a bots",
+			&g_Globals.AimBot.IgnoreBots, COL_GREEN, pulse);
+	}
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+
+	// ==================== COLUMNA DERECHA: RAGE AIM ====================
+	ImGui::BeginChild("##AimRight", ImVec2(colW, colH), false, ImGuiWindowFlags_NoBackground);
+	{
+		ImDrawList* rdl = ImGui::GetWindowDrawList();
+
+		ModeCardHeader(rdl, "RAGE AIM", "Fija el collider del enemigo", "\uF140",
+			&g_Globals.AimBot.RageAim, pulse, colW);
+		RowToggle(rdl, "##AimRa", "Rage Aimbot", "Se activa con CLICK IZQUIERDO",
+			&g_Globals.AimBot.RageAim, COL_GREEN, pulse);
+	}
+	ImGui::EndChild();
 }
 
 static void EspTab(ImDrawList* dl, float pulse)
 {
-	SectionTitle(dl, "VISUALES");
-	if (RowToggle(dl, "##EspLine", "ESP Line", "Linea hacia todos los enemigos", &g_Globals.Visuals.Lines, COL_GREEN, pulse)) {
-		g_Globals.Visuals.EspLines = g_Globals.Visuals.Lines ? 1 : 0;
-		if (g_Globals.Visuals.Lines) {
-			g_Globals.Visuals.Enable = true;
-		}
-	}
-	RowToggle(dl, "##EspBox", "Caja", "Caja alrededor del enemigo", &g_Globals.Visuals.Box, COL_GREEN, pulse);
-	RowToggle(dl, "##EspFill", "Caja Rellena", "Relleno semi transparente", &g_Globals.Visuals.FilledBox, COL_GREEN, pulse);
-	RowToggle(dl, "##EspHb", "Barra de Vida", "Barra de salud en pantalla", &g_Globals.Visuals.HealthBar, COL_GREEN, pulse);
-	RowToggle(dl, "##EspNm", "Nombre", "Nombre del enemigo", &g_Globals.Visuals.Name, COL_GREEN, pulse);
-	RowToggle(dl, "##EspDs", "Distancia", "Distancia al enemigo", &g_Globals.Visuals.Distance, COL_GREEN, pulse);
-	RowToggle(dl, "##EspMm", "Minimapa", "Radar en pantalla", &g_Globals.Visuals.Minimap, COL_GREEN, pulse);
-	RowToggle(dl, "##EspWm", "Marca de Agua", "Logo FREE en pantalla", &g_Globals.Visuals.Watermark, COL_GREEN, pulse);
+	(void)dl;
+	float availW = ImGui::GetContentRegionAvail().x;
+	const float colGap = 32.0f;
+	const float colW = (availW - colGap) * 0.5f;
+	const float availH = ImGui::GetContentRegionAvail().y;
 
-	SectionTitle(dl, "RANGO");
-	SliderRow(dl, "##SlEsp", "Alcance del ESP", "%d m", &g_Globals.Visuals.DistanceEsp, 50, 500, COL_GREEN, pulse);
+	// ==================== COLUMNA IZQUIERDA: SETTINGS (scroll propio) ====================
+	ImGui::BeginChild("##EspLeft", ImVec2(colW, availH), false, ImGuiWindowFlags_NoBackground);
+	{
+		ImDrawList* ldl = ImGui::GetWindowDrawList();
+
+		SectionTitle(ldl, "SETTINGS");
+		RowToggle(ldl, "##EspGlow", "Glow", "Halo resaltado en el ESP", &g_Globals.Visuals.Glow, COL_GREEN, pulse);
+		SliderRow(ldl, "##SlGlow", "Intensidad", "%d %%", &g_Globals.Visuals.GlowIntensity, 0, 100, COL_GREEN, pulse);
+
+		SectionTitle(ldl, "POSICION");
+		TypeSelector(ldl, "##TpEsp", "TYPE", &g_Globals.Visuals.EspLines, COL_GREEN, pulse);
+
+		SectionTitle(ldl, "FILTRO");
+		RowToggle(ldl, "##EspFb", "Ignorar Bots", "No mostrar bots", &g_Globals.Visuals.IgnoreBots, COL_GREEN, pulse);
+		RowToggle(ldl, "##EspFk", "Ignorar Derribados", "Ocultar jugadores knocked", &g_Globals.Visuals.IgnoreKnocked, COL_GREEN, pulse);
+		RowToggle(ldl, "##EspFv", "Solo Visibles", "Mostrar solo enemigos visibles", &g_Globals.Visuals.OnlyVisible, COL_GREEN, pulse);
+
+		SectionTitle(ldl, "COLORS");
+		GroupColors(ldl, "BOTS", &g_Globals.Visuals.ColBots, pulse, 0.0f);
+		GroupColors(ldl, "VISIBLES", &g_Globals.Visuals.ColVisible, pulse, 0.0f);
+		GroupColors(ldl, "KNOCKED", &g_Globals.Visuals.ColKnocked, pulse, 0.0f);
+		GroupColors(ldl, "NORMAL", &g_Globals.Visuals.ColNormal, pulse, 0.0f);
+	}
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+
+	// ==================== COLUMNA DERECHA: VISUALES (scroll propio) ====================
+	ImGui::BeginChild("##EspRight", ImVec2(colW, availH), false, ImGuiWindowFlags_NoBackground);
+	{
+		ImDrawList* rdl = ImGui::GetWindowDrawList();
+
+		SectionTitle(rdl, "VISUALES");
+		if (RowToggle(rdl, "##EspLine", "ESP Line", "Linea hacia todos los enemigos", &g_Globals.Visuals.Lines, COL_GREEN, pulse)) {
+			g_Globals.Visuals.EspLines = g_Globals.Visuals.Lines ? 1 : 0;
+			if (g_Globals.Visuals.Lines) {
+				g_Globals.Visuals.Enable = true;
+			}
+		}
+		RowToggle(rdl, "##EspBox", "Caja", "Caja alrededor del enemigo", &g_Globals.Visuals.Box, COL_GREEN, pulse);
+		RowToggle(rdl, "##EspFill", "Caja Rellena", "Relleno semi transparente", &g_Globals.Visuals.FilledBox, COL_GREEN, pulse);
+		RowToggle(rdl, "##EspHb", "Barra de Vida", "Barra de salud en pantalla", &g_Globals.Visuals.HealthBar, COL_GREEN, pulse);
+		RowToggle(rdl, "##EspNm", "Nombre", "Nombre del enemigo", &g_Globals.Visuals.Name, COL_GREEN, pulse);
+		RowToggle(rdl, "##EspDs", "Distancia", "Distancia al enemigo", &g_Globals.Visuals.Distance, COL_GREEN, pulse);
+		RowToggle(rdl, "##EspMm", "Minimapa", "Radar en pantalla", &g_Globals.Visuals.Minimap, COL_GREEN, pulse);
+		RowToggle(rdl, "##EspWm", "Marca de Agua", "Logo ASMODEUS en pantalla", &g_Globals.Visuals.Watermark, COL_GREEN, pulse);
+
+		SectionTitle(rdl, "RANGO");
+		SliderRow(rdl, "##SlEsp", "Alcance del ESP", "%d m", &g_Globals.Visuals.DistanceEsp, 50, 500, COL_GREEN, pulse);
+	}
+	ImGui::EndChild();
 }
 
 static void ExploitsTab(ImDrawList* dl, float pulse)
@@ -515,6 +903,16 @@ void Interface::UpdateStyle() {
 // RENDERIZADO PRINCIPAL (4 PESTAÑAS: AIMBOT / ESP / EXPLOITS / CONFIG)
 // ============================================================================
 
+static void DrawTabContent(ImDrawList* cdl, int tab, float pulse)
+{
+	switch (tab) {
+	case 0: AimbotTab(cdl, pulse); break;
+	case 1: EspTab(cdl, pulse); break;
+	case 2: ExploitsTab(cdl, pulse); break;
+	case 3: ConfigTab(cdl, pulse); break;
+	}
+}
+
 void Interface::RenderGui()
 {
 	if (!bIsMenuOpen) return;
@@ -526,7 +924,7 @@ void Interface::RenderGui()
 	tGlobal += dt;
 	const float pulse = (sinf(tGlobal * 2.4f) + 1.0f) * 0.5f;
 
-	ImGui::SetNextWindowSize(ImVec2(460.0f, 400.0f));
+	ImGui::SetNextWindowSize(ImVec2(800.0f, 600.0f));
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 12.0f);
@@ -566,7 +964,7 @@ void Interface::RenderGui()
 
 		ImVec2 titlePos = Pos + ImVec2(44, 9);
 		if (Fonts::GeistRegularMedium) ImGui::PushFont(Fonts::GeistRegularMedium);
-		DrawGlowText(dl, titlePos, COL_GREEN, "FREE");
+		DrawGlowText(dl, titlePos, COL_GREEN, "ASMODEUS");
 		if (Fonts::GeistRegularMedium) ImGui::PopFont();
 
 		if (Fonts::InterLight) ImGui::PushFont(Fonts::InterLight);
@@ -579,7 +977,11 @@ void Interface::RenderGui()
 		// PESTAÑAS
 		// ====================================================================
 		static const char* tabNames[] = { "AIMBOT", "ESP", "EXPLOITS", "CONFIG" };
+		static const char* tabIcons[] = { "\uF05B", "\uF06E", "\uF0E7", "\uF013" };
 		static int curTab = 0;
+		static int targetTab = -1;      // pestana hacia la que se transiciona
+		static int slideDir = 1;        // direccion del deslizamiento (-1 izquierda / +1 derecha)
+		static float tabSlide = 1.0f;   // 0 = inicio de la transicion, 1 = asentada
 		float tabW = (Size.x - 32) / 4.0f;
 
 		for (int i = 0; i < 4; i++) {
@@ -592,9 +994,27 @@ void Interface::RenderGui()
 				dl->AddRectFilled(r.Min, r.Max, IM_COL32(255, 255, 255, 4), 6.0f);
 			}
 
-			if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
+			// Icono + nombre de la pestana (centrados como un bloque)
+			float iconW = 0.0f;
+			if (Fonts::FontAwesomeSolid) {
+				ImGui::PushFont(Fonts::FontAwesomeSolid);
+				iconW = ImGui::CalcTextSize(tabIcons[i]).x;
+				ImGui::PopFont();
+			}
+			const float gap = 8.0f;
 			ImVec2 ls = ImGui::CalcTextSize(tabNames[i]);
-			ImVec2 lpos = tp + ImVec2((tabW - ls.x) * 0.5f, (30 - ls.y) * 0.5f - 1.0f);
+			const float total = iconW + gap + ls.x;
+			const float tx = tp.x + (tabW - total) * 0.5f;
+			const float ty = tp.y + (30.0f - ls.y) * 0.5f - 1.0f;
+
+			if (Fonts::FontAwesomeSolid) {
+				ImGui::PushFont(Fonts::FontAwesomeSolid);
+				dl->AddText(ImVec2(tx, ty), active ? COL_GREEN : (hov ? COL_TEXT_MAIN : COL_TEXT_DIM), tabIcons[i]);
+				ImGui::PopFont();
+			}
+
+			if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
+			ImVec2 lpos(tx + iconW + gap, ty);
 			dl->AddText(lpos, active ? COL_GREEN : (hov ? COL_TEXT_MAIN : COL_TEXT_DIM), tabNames[i]);
 			if (Fonts::InterBold12) ImGui::PopFont();
 
@@ -613,7 +1033,10 @@ void Interface::RenderGui()
 				// inmediatamente para no bloquear el arrastre del panel
 				if (ImGui::ButtonBehavior(r, tid, &thov, &theld,
 					ImGuiButtonFlags_PressedOnClick | ImGuiButtonFlags_NoHoldingActiveId)) {
-					curTab = i;
+					if (i != curTab) {
+						targetTab = i;
+						slideDir = (i > curTab) ? 1 : -1;
+					}
 				}
 			}
 
@@ -639,16 +1062,35 @@ void Interface::RenderGui()
 		DrawSweep(dl, Pos + ImVec2(16, 83.4f), Size.x - 32, fmodf(tGlobal * 0.2f, 1.0f));
 
 		// ====================================================================
+		// TRANSICION ENTRE PESTAÑAS: deslizamiento suave del contenido
+		// ====================================================================
+		if (targetTab != -1) {
+			curTab = targetTab;          // cambio inmediato de pestana
+			tabSlide = 0.0f;             // y entrada animada del nuevo contenido
+			targetTab = -1;
+		}
+		else if (tabSlide < 1.0f) {
+			tabSlide = ImMin(tabSlide + dt * 5.5f, 1.0f);   // ~180 ms
+		}
+
+		// ====================================================================
 		// CONTENIDO DE LA PESTAÑA ACTIVA (con scroll)
 		// ====================================================================
 		ImGui::SetCursorScreenPos(Pos + ImVec2(16, 90));
 		if (ImGui::BeginChild("##Content", ImVec2(Size.x - 32, Size.y - 90 - 38), false, ImGuiWindowFlags_NoBackground)) {
 			ImDrawList* cdl = ImGui::GetWindowDrawList();
-			switch (curTab) {
-			case 0: AimbotTab(cdl, pulse); break;
-			case 1: EspTab(cdl, pulse); break;
-			case 2: ExploitsTab(cdl, pulse); break;
-			case 3: ConfigTab(cdl, pulse); break;
+			if (tabSlide < 1.0f) {
+				// Desliza el contenido entrante desde el lado de la pestana anterior
+				float ease = 1.0f - powf(1.0f - tabSlide, 3.0f);   // ease-out cubico
+				float off = slideDir * 24.0f * (1.0f - ease);
+				ImVec2 origin = ImGui::GetWindowPos();
+				cdl->PushClipRect(origin, origin + ImGui::GetWindowSize(), true);
+				ImGui::SetCursorScreenPos(origin + ImVec2(off, 0));
+				DrawTabContent(cdl, curTab, pulse);
+				cdl->PopClipRect();
+			}
+			else {
+				DrawTabContent(cdl, curTab, pulse);
 			}
 		}
 		ImGui::EndChild();
@@ -657,7 +1099,7 @@ void Interface::RenderGui()
 		// FOOTER
 		// ====================================================================
 		if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
-		dl->AddText(Pos + ImVec2(16, Size.y - 26), COL_GREEN_DIM, "FREE v1.0");
+		dl->AddText(Pos + ImVec2(16, Size.y - 26), COL_GREEN_DIM, "ASMODEUS v1.0");
 		if (Fonts::InterBold12) ImGui::PopFont();
 
 		if (Fonts::InterLight) ImGui::PushFont(Fonts::InterLight);

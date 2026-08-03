@@ -98,11 +98,25 @@ namespace Aim {
 		// === EXECUÇÃO DO AIMBOT (LITE & INSTANTÂNEO) ===
 		if (bestTarget && bestTarget->Head != Vector3::Zero()) {
 
-			// 1. Definir ponto exato da cabeça (Hitbox)
-			Vector3 aimPosition = bestTarget->Head;
+			// 1. Definir o osso alvo (HEAD / NECK / HIP)
+			Vector3 aimPosition;
+			switch (g_Globals.AimBot.TargetBone) {
+			case Config::Bone::Neck:
+				aimPosition = bestTarget->Neck != Vector3::Zero() ? bestTarget->Neck : bestTarget->Head;
+				break;
+			case Config::Bone::Hip:
+				aimPosition = bestTarget->Hip != Vector3::Zero() ? bestTarget->Hip : bestTarget->Head;
+				break;
+			case Config::Bone::Head:
+			default:
+				aimPosition = bestTarget->Head;
+				break;
+			}
+			if (aimPosition == Vector3::Zero()) return;
 
-			// Offset fixo para garantir o tiro no crânio (Rage mode)
-			aimPosition.Y += 0.12f;
+			// Offset apenas no HEAD para garantir o tiro no crânio (Rage mode)
+			if (g_Globals.AimBot.TargetBone == Config::Bone::Head)
+				aimPosition.Y += 0.12f;
 
 			// 2. Calcular rotação necessária DIRETA para o alvo
 			// Remove-se qualquer bias ou suavização interna da função GetRotationToLocation

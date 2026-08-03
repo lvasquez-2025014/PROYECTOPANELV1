@@ -117,7 +117,7 @@ void StatusList::Render()
     // =========================
     // HEADER
     // =========================
-    draw->AddText(ImVec2(p.x + 16, p.y + 10), ImColor(255, 255, 255), "FREE");
+    draw->AddText(ImVec2(p.x + 16, p.y + 10), ImColor(255, 255, 255), "ASMODEUS");
     draw->AddText(ImVec2(p.x + 16, p.y + 28), ImColor(140, 140, 140), "STATUS PANEL");
 
     draw->AddLine(
