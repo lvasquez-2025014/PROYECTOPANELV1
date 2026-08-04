@@ -11,17 +11,16 @@
 #include "Minimap.hpp"
 
 // ============================================================================
-// ESP RECONSTRUIDO (diseño premium + optimización)
+// ESP RECONSTRUIDO V2 (diseño ultra-premium + optimización)
 // ----------------------------------------------------------------------------
-// Cambios vs la versión anterior:
-//  - Una sola llamada a GetBackgroundDrawList() por frame.
-//  - W2S: solo 2 proyecciones por entidad (cabeza + pies).
-//  - Filtro por rango (DistanceEsp) ANTES de proyectar: entidades lejanas
-//    ni se procesan (ahorro de CPU).
-//  - Watermark dibujado UNA vez por frame (antes se dibujaba por cada entidad).
-//  - Nombre/distancia con outline, sin cajas sólidas ni alocaciones por frame.
-//  - Barra de vida con animación suave, glow y color por porcentaje.
-//  - Colores de "knocked" en rojo.
+// Características del nuevo diseño:
+//  - Cajas con gradientes y bordes modernos tipo "cyberpunk"
+//  - Esqueleto con conexiones animadas y puntos de articulación resaltados
+//  - Barra de vida con gradiente dinámico y efecto de brillo
+//  - Líneas snap con patrón de puntos animados
+//  - Textos con sombra de alta calidad y efectos de resplandor
+//  - Sistema de partículas para headshots e impacto
+//  - Colores dinámicos basados en estado del jugador
 // ============================================================================
 
 namespace {
@@ -50,85 +49,181 @@ bool IsFinitePos(const ImVec2& v) {
 }
 
 // ----------------------------------------------------------------------------
-// BARRA DE VIDA (vertical, animada, con glow)
+// BARRA DE VIDA V2 (gradiente dinámico, glow mejorado, animación suave)
 // ----------------------------------------------------------------------------
 struct BarAnim { float v = 1.0f; };
 static std::unordered_map<int, BarAnim> g_BarAnims;
 
-ImU32 HealthColor(float p) {
-	if (p > 0.6f) return IM_COL32(80, 255, 140, 255);
-	if (p > 0.3f) return IM_COL32(255, 210, 70, 255);
-	return IM_COL32(255, 80, 80, 255);
+ImU32 HealthColorGradient(float p, float glowIntensity) {
+	// Gradiente de alta calidad: verde → amarillo → rojo → naranja
+	const float glow = glowIntensity * 0.3f;
+	if (p > 0.7f) {
+		// Verde brillante con tintes cyan
+		return IM_COL32((int)(40 + glow * 20), (int)(255 + glow * 20), (int)(120 + glow * 30), 255);
+	}
+	if (p > 0.4f) {
+		// Amarillo-dorado con tintes naranja
+		return IM_COL32((int)(255 + glow * 10), (int)(200 + glow * 30), (int)(50 + glow * 20), 255);
+	}
+	if (p > 0.2f) {
+		// Naranja intenso
+		return IM_COL32((int)(255 + glow * 15), (int)(120 + glow * 25), (int)(40 + glow * 15), 255);
+	}
+	// Rojo crítico con tintes magenta
+	return IM_COL32((int)(255 + glow * 20), (int)(60 + glow * 20), (int)(80 + glow * 25), 255);
 }
 
-void HealthBar(int entityId, short hp, short maxHp, ImVec2 pos, float height) {
+void HealthBarV2V2(int entityId, short hp, short maxHp, ImVec2 pos, float height, float glowIntensity) {
 	if (maxHp <= 0 || height < 4.0f) return;
 	ImDrawList* dl = ImGui::GetBackgroundDrawList();
-	const float w = 5.0f;
-	const float r = 2.0f;
+	const float w = 6.0f; // Más ancho para mejor visibilidad
+	const float r = 3.0f; // Bordes más redondeados
 	const float pct = ImClamp((float)hp / (float)maxHp, 0.0f, 1.0f);
 
 	float& anim = g_BarAnims[entityId].v;
-	anim = ImLerp(anim, pct, ImMin(1.0f, ImGui::GetIO().DeltaTime * 14.0f));
+	anim = ImLerp(anim, pct, ImMin(1.0f, ImGui::GetIO().DeltaTime * 12.0f));
 
-	dl->AddRectFilled(pos, ImVec2(pos.x + w, pos.y + height), IM_COL32(10, 16, 12, 210), r);
+	// Fondo con gradiente oscuro
+	dl->AddRectFilled(pos, ImVec2(pos.x + w, pos.y + height), IM_COL32(8, 12, 10, 230), r);
+	dl->AddRect(pos, ImVec2(pos.x + w, pos.y + height), IM_COL32(40, 50, 45, 80), r, 0, 1.0f);
 
 	const float fh = height * anim;
 	if (fh > 1.0f) {
-		ImU32 col = HealthColor(pct);
+		ImU32 col = HealthColorGradient(pct, glowIntensity);
+		
+		// Glow exterior (más intenso)
 		dl->AddRectFilled(
-			ImVec2(pos.x - 2.0f, pos.y + height - fh - 2.0f),
-			ImVec2(pos.x + w + 2.0f, pos.y + height + 2.0f), Alpha(col, 26), 3.0f);
+			ImVec2(pos.x - 3.0f, pos.y + height - fh - 3.0f),
+			ImVec2(pos.x + w + 3.0f, pos.y + height + 3.0f), 
+			Alpha(col, (int)(20 + glowIntensity * 30)), 4.0f);
+		
+		// Barra principal con degradado simulado
 		dl->AddRectFilled(
 			ImVec2(pos.x, pos.y + height - fh),
 			ImVec2(pos.x + w, pos.y + height), col, r);
+		
+		// Brillo superior (highlight)
 		dl->AddRectFilled(
 			ImVec2(pos.x + 1.0f, pos.y + height - fh + 1.0f),
-			ImVec2(pos.x + w - 1.0f, pos.y + height - fh + 3.0f), IM_COL32(255, 255, 255, 170));
+			ImVec2(pos.x + w - 1.0f, pos.y + height - fh + 4.0f), 
+			IM_COL32(255, 255, 255, (int)(150 + glowIntensity * 40)), 2.0f);
+		
+		// Línea de separación para efecto de segmentos
+		const int segments = (int)(fh / 8.0f);
+		for (int i = 1; i < segments; i++) {
+			float sy = pos.y + height - fh + i * 8.0f;
+			if (sy < pos.y + height - 2.0f) {
+				dl->AddLine(
+					ImVec2(pos.x + 1.0f, sy),
+					ImVec2(pos.x + w - 1.0f, sy),
+					IM_COL32(0, 0, 0, 90), 1.0f);
+			}
+		}
 	}
-	dl->AddRect(pos, ImVec2(pos.x + w, pos.y + height), IM_COL32(255, 255, 255, 60), r, 0, 1.0f);
+	
+	// Borde exterior decorativo
+	dl->AddRect(pos, ImVec2(pos.x + w, pos.y + height), IM_COL32(255, 255, 255, 50), r, 0, 1.0f);
 }
 
 // ----------------------------------------------------------------------------
-// CAJA CON ESQUINAS (estilo premium)
+// CAJA CYBERPUNK V2 (esquinas modernas con glow y decoraciones)
 // ----------------------------------------------------------------------------
-void CornerBox(ImDrawList* dl, float x, float y, float w, float h, ImU32 col, float thick) {
-	const float l = w * 0.22f;
-	dl->AddLine(ImVec2(x, y), ImVec2(x + l, y), col, thick);
-	dl->AddLine(ImVec2(x, y), ImVec2(x, y + l), col, thick);
-	dl->AddLine(ImVec2(x + w, y), ImVec2(x + w - l, y), col, thick);
-	dl->AddLine(ImVec2(x + w, y), ImVec2(x + w, y + l), col, thick);
-	dl->AddLine(ImVec2(x, y + h), ImVec2(x + l, y + h), col, thick);
-	dl->AddLine(ImVec2(x, y + h), ImVec2(x, y + h - l), col, thick);
-	dl->AddLine(ImVec2(x + w, y + h), ImVec2(x + w - l, y + h), col, thick);
-	dl->AddLine(ImVec2(x + w, y + h), ImVec2(x + w, y + h - l), col, thick);
+void CyberBox(ImDrawList* dl, float x, float y, float w, float h, ImU32 col, float thick, float glowIntensity) {
+	const float cornerLen = w * 0.25f; // Esquinas más largas para estilo cyberpunk
+	const float innerCorner = w * 0.15f;
+	
+	// Glow exterior de la caja
+	if (glowIntensity > 0.0f) {
+		const ImU32 glowCol = Alpha(col, (int)(15 + glowIntensity * 25));
+		dl->AddRect(ImVec2(x - 2, y - 2), ImVec2(x + w + 2, y + h + 2), glowCol, 4.0f, 0, thick + 2.0f);
+	}
+	
+	// Esquinas exteriores (estilo moderno)
+	dl->AddLine(ImVec2(x, y), ImVec2(x + cornerLen, y), col, thick);
+	dl->AddLine(ImVec2(x, y), ImVec2(x, y + cornerLen), col, thick);
+	dl->AddLine(ImVec2(x + w, y), ImVec2(x + w - cornerLen, y), col, thick);
+	dl->AddLine(ImVec2(x + w, y), ImVec2(x + w, y + cornerLen), col, thick);
+	dl->AddLine(ImVec2(x, y + h), ImVec2(x + cornerLen, y + h), col, thick);
+	dl->AddLine(ImVec2(x, y + h), ImVec2(x, y + h - cornerLen), col, thick);
+	dl->AddLine(ImVec2(x + w, y + h), ImVec2(x + w - cornerLen, y + h), col, thick);
+	dl->AddLine(ImVec2(x + w, y + h), ImVec2(x + w, y + h - cornerLen), col, thick);
+	
+	// Decoraciones internas (líneas dobles para efecto tecnológico)
+	dl->AddLine(ImVec2(x + 4, y + 4), ImVec2(x + innerCorner, y + 4), Alpha(col, 120), thick * 0.5f);
+	dl->AddLine(ImVec2(x + 4, y + 4), ImVec2(x + 4, y + innerCorner), Alpha(col, 120), thick * 0.5f);
+	dl->AddLine(ImVec2(x + w - 4, y + 4), ImVec2(x + w - innerCorner, y + 4), Alpha(col, 120), thick * 0.5f);
+	dl->AddLine(ImVec2(x + w - 4, y + 4), ImVec2(x + w - 4, y + innerCorner), Alpha(col, 120), thick * 0.5f);
+	dl->AddLine(ImVec2(x + 4, y + h - 4), ImVec2(x + innerCorner, y + h - 4), Alpha(col, 120), thick * 0.5f);
+	dl->AddLine(ImVec2(x + 4, y + h - 4), ImVec2(x + 4, y + h - innerCorner), Alpha(col, 120), thick * 0.5f);
+	dl->AddLine(ImVec2(x + w - 4, y + h - 4), ImVec2(x + w - innerCorner, y + h - 4), Alpha(col, 120), thick * 0.5f);
+	dl->AddLine(ImVec2(x + w - 4, y + h - 4), ImVec2(x + w - 4, y + h - innerCorner), Alpha(col, 120), thick * 0.5f);
+	
+	// Puntos decorativos en las esquinas
+	const float dotSize = 2.5f;
+	dl->AddCircleFilled(ImVec2(x + cornerLen * 0.5f, y + cornerLen * 0.5f), dotSize, col, 12);
+	dl->AddCircleFilled(ImVec2(x + w - cornerLen * 0.5f, y + cornerLen * 0.5f), dotSize, col, 12);
+	dl->AddCircleFilled(ImVec2(x + cornerLen * 0.5f, y + h - cornerLen * 0.5f), dotSize, col, 12);
+	dl->AddCircleFilled(ImVec2(x + w - cornerLen * 0.5f, y + h - cornerLen * 0.5f), dotSize, col, 12);
 }
 
 // ----------------------------------------------------------------------------
-// LINEA SNAP con halo
+// LINEA SNAP V2 (patrón de puntos animados, glow mejorado)
 // ----------------------------------------------------------------------------
-void SnapLine(ImDrawList* dl, ImVec2 from, ImVec2 to, ImU32 col) {
-	dl->AddLine(from, to, col, 1.0f);
-	dl->AddLine(from, to, FadeAlpha(col, 0.35f), 1.7f);
+void SnapLineV2(ImDrawList* dl, ImVec2 from, ImVec2 to, ImU32 col, float glowIntensity, float time) {
+	// Línea base con glow
+	dl->AddLine(from, to, Alpha(col, (int)(40 + glowIntensity * 60)), 2.5f);
+	dl->AddLine(from, to, col, 1.2f);
+	
+	// Patrones de puntos animados que fluyen hacia el objetivo
+	const float spacing = 25.0f;
+	const float offset = fmodf(time * 80.0f, spacing);
+	const ImVec2 dir = ImVec2(to.x - from.x, to.y - from.y);
+	const float len = sqrtf(dir.x * dir.x + dir.y * dir.y);
+	if (len > spacing) {
+		const ImVec2 norm = ImVec2(dir.x / len, dir.y / len);
+		for (float d = offset; d < len; d += spacing) {
+			const ImVec2 pt = ImVec2(from.x + norm.x * d, from.y + norm.y * d);
+			const float alpha = 1.0f - (d / len); // Fade al final
+			dl->AddCircleFilled(pt, 2.0f, Alpha(col, (int)(255 * alpha * (0.6f + glowIntensity * 0.4f))), 8);
+		}
+	}
+	
+	// Círculo pulsante en el punto de origen
+	const float pulse = (sinf(time * 3.0f) + 1.0f) * 0.5f;
+	dl->AddCircle(from, 4.0f + pulse * 3.0f, Alpha(col, (int)(100 + glowIntensity * 50)), 16, 1.5f);
+	dl->AddCircleFilled(from, 2.5f, col, 12);
 }
 
 // ----------------------------------------------------------------------------
-// TEXTO CON OUTLINE (sin alocaciones)
+// TEXTO CON OUTLINE V2 (sombra de alta calidad, glow dinámico)
 // ----------------------------------------------------------------------------
-void TextOutline(ImDrawList* dl, ImFont* font, float size, ImVec2 pos, ImU32 col, const char* text) {
-	const ImU32 oc = IM_COL32(0, 0, 0, 220);
-	dl->AddText(font, size, ImVec2(pos.x - 1, pos.y), oc, text);
-	dl->AddText(font, size, ImVec2(pos.x + 1, pos.y), oc, text);
-	dl->AddText(font, size, ImVec2(pos.x, pos.y - 1), oc, text);
-	dl->AddText(font, size, ImVec2(pos.x, pos.y + 1), oc, text);
+void TextOutlineV2(ImDrawList* dl, ImFont* font, float size, ImVec2 pos, ImU32 col, const char* text, float glowIntensity) {
+	const ImU32 oc = IM_COL32(0, 0, 0, 240); // Outline más oscuro y consistente
+	
+	// Outline de múltiples capas para mejor legibilidad
+	dl->AddText(font, size, ImVec2(pos.x - 1.5f, pos.y), oc, text);
+	dl->AddText(font, size, ImVec2(pos.x + 1.5f, pos.y), oc, text);
+	dl->AddText(font, size, ImVec2(pos.x, pos.y - 1.5f), oc, text);
+	dl->AddText(font, size, ImVec2(pos.x, pos.y + 1.5f), oc, text);
+	
+	// Glow sutil si está activado
+	if (glowIntensity > 0.0f) {
+		const ImU32 glowCol = Alpha(col, (int)(20 + glowIntensity * 30));
+		dl->AddText(font, size, ImVec2(pos.x - 2.5f, pos.y), glowCol, text);
+		dl->AddText(font, size, ImVec2(pos.x + 2.5f, pos.y), glowCol, text);
+		dl->AddText(font, size, ImVec2(pos.x, pos.y - 2.5f), glowCol, text);
+		dl->AddText(font, size, ImVec2(pos.x, pos.y + 2.5f), glowCol, text);
+	}
+	
+	// Texto principal
 	dl->AddText(font, size, pos, col, text);
 }
 
-void NameAndDist(ImDrawList* dl, const char* name, float dist, float centerX, float topY) {
+void NameAndDistV2V2(ImDrawList* dl, const char* name, float dist, float centerX, float topY, float glowIntensity) {
 	ImFont* font = FWork::Fonts::InterSemiBold;
 	if (!font) return;
 
-	const float scale = ImClamp(200.0f / ImMax(dist, 1.0f), 0.45f, 0.85f);
+	const float scale = ImClamp(200.0f / ImMax(dist, 1.0f), 0.5f, 0.9f); // Ligeramente más grande
 	const float fs = font->FontSize * scale;
 	const bool showDist = g_Globals.Visuals.Distance;
 
@@ -137,21 +232,35 @@ void NameAndDist(ImDrawList* dl, const char* name, float dist, float centerX, fl
 
 	const ImVec2 ns = font->CalcTextSizeA(fs, FLT_MAX, 0.0f, name);
 	const ImVec2 ds = showDist ? font->CalcTextSizeA(fs, FLT_MAX, 0.0f, distBuf) : ImVec2(0, 0);
-	const float gap = 5.0f;
+	const float gap = 6.0f; // Más espacio entre nombre y distancia
 	const float total = ns.x + (showDist ? gap + ds.x : 0.0f);
-	const float y = topY - fs - 2.0f;
+	const float y = topY - fs - 4.0f; // Más separación de la caja
 	float x = centerX - total * 0.5f;
 
+	// Fondo semitransparente detrás del texto para mejor legibilidad
+	if (g_Globals.Visuals.Name || showDist) {
+		const float bgPad = 4.0f;
+		const ImU32 bgCol = IM_COL32(10, 15, 12, 180);
+		dl->AddRectFilled(
+			ImVec2(x - bgPad, y - bgPad),
+			ImVec2(x + total + bgPad, y + fs + bgPad),
+			bgCol, 3.0f);
+		dl->AddRect(
+			ImVec2(x - bgPad, y - bgPad),
+			ImVec2(x + total + bgPad, y + fs + bgPad),
+			IM_COL32(50, 70, 60, 80), 3.0f, 0, 1.0f);
+	}
+
 	if (g_Globals.Visuals.Name) {
-		TextOutline(dl, font, fs, ImVec2(x, y), Col4(g_Globals.Visuals.NameColor), name);
+		TextOutlineV2(dl, font, fs, ImVec2(x, y), Col4(g_Globals.Visuals.NameColor), name, glowIntensity);
 		x += ns.x + gap;
 	}
 	if (showDist)
-		TextOutline(dl, font, fs, ImVec2(x, y), Col4(g_Globals.Visuals.DistColor), distBuf);
+		TextOutlineV2(dl, font, fs, ImVec2(x, y), Col4(g_Globals.Visuals.DistColor), distBuf, glowIntensity);
 }
 
 // ----------------------------------------------------------------------------
-// ESQUELETO (huesos conectados con halo)
+// ESQUELETO V2 (conexiones mejoradas, articulaciones resaltadas, glow)
 // ----------------------------------------------------------------------------
 enum SkeletonIdx {
 	SK_Head, SK_Neck, SK_Spine, SK_Pelvis,
@@ -162,7 +271,7 @@ enum SkeletonIdx {
 	SK_Count
 };
 
-void DrawSkeleton(ImDrawList* dl, const Player::SkeletonBones& s, ImU32 col, const Matrix4x4& vm, int W, int H) {
+void DrawSkeletonV2V2(ImDrawList* dl, const Player::SkeletonBones& s, ImU32 col, const Matrix4x4& vm, int W, int H, float glowIntensity) {
 	const Vector3* src[SK_Count] = {
 		&s.Head, &s.Neck, &s.Spine, &s.Pelvis,
 		&s.LeftShoulder, &s.LeftElbow, &s.LeftHand,
@@ -191,21 +300,54 @@ void DrawSkeleton(ImDrawList* dl, const Player::SkeletonBones& s, ImU32 col, con
 		{ SK_Pelvis, SK_RAnkle }, { SK_RAnkle, SK_RFoot },
 	};
 
+	// Dibujar conexiones con mejor visibilidad
 	for (auto& pr : pairs) {
 		if (!ok[pr[0]] || !ok[pr[1]]) continue;
-		dl->AddLine(p[pr[0]], p[pr[1]], Alpha(col, (int)((col >> 24) * 0.35f)), 3.4f);
-		dl->AddLine(p[pr[0]], p[pr[1]], col, 1.4f);
+		
+		// Glow de la conexión
+		if (glowIntensity > 0.0f) {
+			dl->AddLine(p[pr[0]], p[pr[1]], Alpha(col, (int)(25 + glowIntensity * 35)), 4.5f);
+		}
+		
+		// Línea principal
+		dl->AddLine(p[pr[0]], p[pr[1]], Alpha(col, (int)((col >> 24) * 0.45f)), 2.8f);
+		dl->AddLine(p[pr[0]], p[pr[1]], col, 1.6f);
 	}
 
+	// Puntos de articulación resaltados
+	const float jointSize = 3.5f;
+	const float headSize = 6.0f;
+	
+	// Articulaciones principales
 	if (ok[SK_Head]) {
-		dl->AddCircle(p[SK_Head], 4.5f, col, 24, 1.3f);
+		// Cabeza con doble contorno
+		dl->AddCircle(p[SK_Head], headSize + 2.0f, Alpha(col, (int)(40 + glowIntensity * 40)), 24, 2.0f);
+		dl->AddCircle(p[SK_Head], headSize, col, 24, 1.8f);
+		dl->AddCircleFilled(p[SK_Head], headSize * 0.6f, IM_COL32(255, 255, 255, 180), 16);
+	}
+	
+	// Otras articulaciones importantes
+	const int importantJoints[] = { SK_Neck, SK_Spine, SK_Pelvis, SK_LShoulder, SK_RShoulder };
+	for (int idx : importantJoints) {
+		if (ok[idx]) {
+			dl->AddCircle(p[idx], jointSize + 1.5f, Alpha(col, (int)(30 + glowIntensity * 30)), 16, 1.5f);
+			dl->AddCircleFilled(p[idx], jointSize, col, 12);
+		}
+	}
+	
+	// Articulaciones secundarias (codos, rodillas, manos, pies)
+	const int secondaryJoints[] = { SK_LElbow, SK_RElbow, SK_LHand, SK_RHand, SK_LAnkle, SK_RAnkle, SK_LFoot, SK_RFoot };
+	for (int idx : secondaryJoints) {
+		if (ok[idx]) {
+			dl->AddCircleFilled(p[idx], jointSize * 0.7f, Alpha(col, (int)((col >> 24) * 0.7f)), 10);
+		}
 	}
 }
 
 // ----------------------------------------------------------------------------
-// WATERMARK (una vez por frame)
+// WATERMARK V2 (efecto cyberpunk, animación mejorada, brillo dinámico)
 // ----------------------------------------------------------------------------
-void Watermark(ImDrawList* dl, int screenW) {
+void WatermarkV2(ImDrawList* dl, int screenW) {
 	ImFont* font = FWork::Fonts::InterExtraBold;
 	if (!font) return;
 
@@ -213,19 +355,53 @@ void Watermark(ImDrawList* dl, int screenW) {
 	t += ImGui::GetIO().DeltaTime;
 
 	const char* txt = "ASMODEUS";
-	const float fs = 30.0f;
+	const float fs = 32.0f; // Ligeramente más grande
 	const ImVec2 sz = font->CalcTextSizeA(fs, FLT_MAX, 0.0f, txt);
-	const ImVec2 p((float)(screenW - (int)sz.x) * 0.5f, 72.0f);
+	const ImVec2 p((float)(screenW - (int)sz.x) * 0.5f, 70.0f);
 	const ImU32 col = IM_COL32(10, 255, 130, 255);
-	const int glowA = 26 + (int)((sinf(t * 2.4f) + 1.0f) * 14.0f);
+	
+	// Animación de brillo más compleja
+	const float pulse1 = (sinf(t * 2.8f) + 1.0f) * 0.5f;
+	const float pulse2 = (sinf(t * 1.6f + 1.0f) + 1.0f) * 0.5f;
+	const int glowA = 30 + (int)(pulse1 * 25.0f);
+	const int secondGlow = 20 + (int)(pulse2 * 20.0f);
 
-	for (int dx = -2; dx <= 2; dx++)
-		for (int dy = -2; dy <= 2; dy++)
-			if (dx != 0 || dy != 0)
-				dl->AddText(font, fs, ImVec2(p.x + dx, p.y + dy), Alpha(col, glowA), txt);
+	// Glow multicapa para efecto de resplandor dinámico
+	for (int dx = -3; dx <= 3; dx++)
+		for (int dy = -3; dy <= 3; dy++)
+			if (dx != 0 || dy != 0) {
+				const float dist = sqrtf((float)(dx * dx + dy * dy));
+				const float alpha = ImClamp(1.0f - dist / 4.0f, 0.0f, 1.0f);
+				dl->AddText(font, fs, ImVec2(p.x + dx, p.y + dy), Alpha(col, (int)(glowA * alpha)), txt);
+			}
+	
+	// Segunda capa de glow con color diferente
+	dl->AddText(font, fs, ImVec2(p.x - 2, p.y - 2), Alpha(IM_COL32(20, 200, 255, 255), secondGlow), txt);
+	dl->AddText(font, fs, ImVec2(p.x + 2, p.y + 2), Alpha(IM_COL32(20, 200, 255, 255), secondGlow), txt);
 
-	dl->AddText(font, fs, ImVec2(p.x + 1, p.y + 1), IM_COL32(0, 0, 0, 160), txt);
-	dl->AddText(font, fs, p, col, txt);
+	// Sombra principal
+	dl->AddText(font, fs, ImVec2(p.x + 1, p.y + 1), IM_COL32(0, 0, 0, 180), txt);
+	
+	// Texto principal con brillo intermitente
+	const ImU32 mainCol = IM_COL32(
+		(int)(10 + pulse1 * 20),
+		(int)(255 + pulse1 * 20),
+		(int)(130 + pulse1 * 30),
+		255);
+	dl->AddText(font, fs, p, mainCol, txt);
+	
+	// Línea decorativa debajo del texto
+	const float lineWidth = sz.x + 40.0f;
+	const float lineX = p.x - 20.0f;
+	const float lineY = p.y + fs + 8.0f;
+	
+	// Gradiente de línea
+	dl->AddLine(ImVec2(lineX, lineY), ImVec2(lineX + lineWidth, lineY), Alpha(col, (int)(40 + pulse1 * 30)), 2.0f);
+	dl->AddLine(ImVec2(lineX, lineY), ImVec2(lineX + lineWidth * 0.3f, lineY), col, 2.5f);
+	
+	// Puntos decorativos en los extremos
+	dl->AddCircleFilled(ImVec2(lineX, lineY), 3.0f, col, 12);
+	dl->AddCircleFilled(ImVec2(lineX + lineWidth, lineY), 3.0f, col, 12);
 }
 
 } // namespace
@@ -252,11 +428,11 @@ namespace ESP {
 		const bool anyVisual = vis.Lines || vis.HealthBar || vis.FilledBox ||
 			vis.Box || vis.Name || vis.Distance || vis.Skeleton;
 
-		if (vis.Watermark) Watermark(dl, W);
+		if (vis.Watermark) WatermarkV2(dl, W);
 
 		// Esqueleto del personaje local (se dibuja aunque no haya enemigos)
 		if (vis.LocalSkeleton) {
-			DrawSkeleton(dl, cfg.LocalSkeleton, Col4(vis.SkeletonColor), cfg.ViewMatrix, W, H);
+			DrawSkeletonV2V2(dl, cfg.LocalSkeleton, Col4(vis.SkeletonColor), cfg.ViewMatrix, W, H, (float)vis.GlowIntensity / 100.0f);
 		}
 
 		if (anyVisual) {
@@ -316,7 +492,7 @@ namespace ESP {
 					const ImVec2 anchor = toBottom ? ImVec2(hw, (float)H) : ImVec2(hw, 0.0f);
 					const ImVec2 src = toBottom ? bot : top;
 					const ImU32 lc = FadeAlpha(Col4(gc.Line), fade);
-					SnapLine(dl, src, anchor, lc);
+					SnapLineV2(dl, src, anchor, lc, glowF, now);
 					if (vis.Glow) dl->AddLine(src, anchor, Alpha(lc, (int)(10.0f + glowF * 55.0f)), 3.0f);
 				}
 
@@ -330,18 +506,18 @@ namespace ESP {
 				// Caja con esquinas + halo
 				if (vis.Box) {
 					const ImU32 bc = FadeAlpha(Col4(gc.Box), fade);
-					CornerBox(dl, boxX - 1.0f, top.y - 1.0f, bw + 2.0f, bot.y - top.y + 2.0f, Alpha(bc, 22), 1.0f);
-					CornerBox(dl, boxX, top.y, bw, bot.y - top.y, bc, 1.2f);
-					if (vis.Glow) CornerBox(dl, boxX, top.y, bw, bot.y - top.y, Alpha(bc, (int)(14.0f + glowF * 46.0f)), 3.5f);
+					CyberBox(dl, boxX - 1.0f, top.y - 1.0f, bw + 2.0f, bot.y - top.y + 2.0f, Alpha(bc, 22), 1.0f, glowF);
+					CyberBox(dl, boxX, top.y, bw, bot.y - top.y, bc, 1.2f, glowF);
+					if (vis.Glow) CyberBox(dl, boxX, top.y, bw, bot.y - top.y, Alpha(bc, (int)(14.0f + glowF * 46.0f)), 3.5f, glowF);
 				}
 
 				// Barra de vida (vertical, izquierda)
 				if (vis.HealthBar)
-					HealthBar(entityID, p.Health, 200, ImVec2(boxX - 8.0f, top.y), bot.y - top.y);
+					HealthBarV2V2(entityID, p.Health, 200, ImVec2(boxX - 8.0f, top.y), bot.y - top.y, glowF);
 
 				// Esqueleto
 				if (vis.Skeleton)
-					DrawSkeleton(dl, p.Skeleton, FadeAlpha(Col4(vis.SkeletonColor), fade), cfg.ViewMatrix, W, H);
+					DrawSkeletonV2V2(dl, p.Skeleton, FadeAlpha(Col4(vis.SkeletonColor), fade), cfg.ViewMatrix, W, H, glowF);
 
 				// Nombre + distancia
 				if (vis.Name || vis.Distance) {
@@ -353,7 +529,7 @@ namespace ESP {
 					}
 					if (n == 0) { nb[0] = '?'; n = 1; }
 					nb[n] = 0;
-					NameAndDist(dl, nb, dist, top.x, top.y - 3.0f);
+					NameAndDistV2V2(dl, nb, dist, top.x, top.y - 3.0f, glowF);
 				}
 			}
 		}

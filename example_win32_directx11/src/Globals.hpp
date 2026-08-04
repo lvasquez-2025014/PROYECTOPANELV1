@@ -77,6 +77,11 @@ public:
         // Velocidad de bala (m/s) para predecir el movimiento del target:
         // lead = velocidad del target * tiempo de vuelo.
         float BulletSpeed = 950.0f;
+        // Gravedad de la bala (m/s^2) para compensar caida (drop).
+        // Free Fire ~12-15; 0 = desactivado.
+        float Gravity = 12.5f;
+        // Precisión de hip-fire (0.0-1.0): 1.0 = máxima precisión, 0.5 = 50% más permisivo
+        float HipFireAccuracy = 1.0f;
     }
     Silent;
     struct Exploits {
@@ -124,6 +129,7 @@ public:
 
         // ---- TURN 180 (voltea a los enemigos boca abajo bajo tierra) ----
         bool TurnEnemies = false;
+        int TurnEnemiesKey = 0; // tecla: activar/desactivar
 
         // ---- PULL PLAYER (jalar enemigos a la mira) ----
         bool PullPlayer = false;
@@ -131,6 +137,15 @@ public:
         int PullBone = 0;          // 0=Head, 1=Spine, 2=Root
         float PullDis = 300.0f;    // distancia maxima para el pull
         float PullFov = 300.0f;    // FOV (px desde el centro de la pantalla)
+
+        // ---- DOWN PLAYER (baja 0.45m al enemigo que apuntas) ----
+        bool DownPlayer = false;
+        int DownPlayerBind = 0;    // tecla: mantener pulsada mientras disparas
+
+        // ---- GHOST LAG (retrasa tus paquetes de salida con WinDivert) ----
+        bool GhostLag = false;
+        int GhostLagKey = 0; // tecla: activar/desactivar
+        float GhostLagDelay = 5000.0f; // ms de retraso (apareces laggeado)
 
         // ---- TECLAS TOGGLE (presionar para activar/desactivar) ----
         int FastSwitchKey = 0;

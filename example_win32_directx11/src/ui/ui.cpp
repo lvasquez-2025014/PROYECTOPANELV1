@@ -500,19 +500,37 @@ static const char* KeyName(int vk)
 	case VK_LBUTTON: return "CLICK IZQ";
 	case VK_RBUTTON: return "CLICK DER";
 	case VK_MBUTTON: return "RUEDA";
+	case VK_XBUTTON1: return "MOUSE 4";
+	case VK_XBUTTON2: return "MOUSE 5";
 	case VK_INSERT:  return "INSERT";
 	case VK_SPACE:   return "SPACE";
 	case VK_SHIFT:   return "SHIFT";
+	case VK_LSHIFT:  return "L-SHIFT";
+	case VK_RSHIFT:  return "R-SHIFT";
 	case VK_CONTROL: return "CTRL";
+	case VK_LCONTROL: return "L-CTRL";
+	case VK_RCONTROL: return "R-CTRL";
 	case VK_MENU:    return "ALT";
+	case VK_LMENU:   return "L-ALT";
+	case VK_RMENU:   return "R-ALT";
+	case VK_CAPITAL: return "CAPS";
+	case VK_NUMLOCK: return "NUM";
+	case VK_SCROLL:  return "SCROLL";
 	case VK_TAB:     return "TAB";
 	case VK_ESCAPE:  return "ESC";
 	case VK_RETURN:  return "ENTER";
 	case VK_BACK:    return "SUPR";
+	case VK_DELETE:  return "DEL";
 	case VK_UP:      return "ARRIBA";
 	case VK_DOWN:    return "ABAJO";
 	case VK_LEFT:    return "IZQUIERDA";
 	case VK_RIGHT:   return "DERECHA";
+	case VK_HOME:    return "HOME";
+	case VK_END:     return "END";
+	case VK_PRIOR:   return "PAGE UP";
+	case VK_NEXT:    return "PAGE DOWN";
+	case VK_SNAPSHOT:return "PRINT";
+	case VK_PAUSE:   return "PAUSE";
 	default:
 		if (vk >= 'A' && vk <= 'Z') {
 			static char b[2] = { (char)vk, 0 };
@@ -534,7 +552,7 @@ static const char* KeyName(int vk)
 // ============================================================================
 // FILA CON CAPTURA DE TECLA (badge + captura por polling)
 // ============================================================================
-static bool KeyBindRow(ImDrawList* dl, const char* rowId, const char* label, const char* sub, int* v, ImU32 accent, float pulse, float width = 0.0f)
+static bool KeyBindRow(ImDrawList* dl, const char* rowId, const char* label, const char* sub, int* v, ImU32 accent, float pulse, float width = 0.0f, bool* state = nullptr)
 {
 	static std::map<ImGuiID, bool> capturing;
 	static std::map<ImGuiID, float> captureStart;
@@ -554,6 +572,23 @@ static bool KeyBindRow(ImDrawList* dl, const char* rowId, const char* label, con
 		ImGui::PushFont(Fonts::InterRegular14);
 		dl->AddText(p + ImVec2(12, 26), COL_TEXT_DIM, sub);
 		ImGui::PopFont();
+	}
+
+	// Indicador de estado ON/OFF (a la izquierda del badge de tecla)
+	if (state) {
+		const bool on = *state;
+		const ImVec2 sb = p + ImVec2(w - 16 - 74 - 52, 11);
+		const ImVec2 ss(44, 22);
+		const ImU32 sCol = on ? IM_COL32(25, 130, 65, 255) : IM_COL32(120, 40, 40, 255);
+		const ImU32 sDim = on ? IM_COL32(130, 220, 160, 255) : IM_COL32(230, 140, 140, 255);
+		dl->AddRectFilled(sb, sb + ss, IM_COL32(on ? 12 : 26, on ? 30 : 10, on ? 16 : 10, 255), 6.0f);
+		dl->AddRect(sb, sb + ss, sCol, 6.0f, ImDrawFlags_RoundCornersAll, 1.0f);
+
+		const char* st = on ? "ON" : "OFF";
+		ImVec2 ss2 = ImGui::CalcTextSize(st);
+		if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
+		dl->AddText(sb + ImVec2((ss.x - ss2.x) * 0.5f, (ss.y - ss2.y) * 0.5f - 1.0f), sDim, st);
+		if (Fonts::InterBold12) ImGui::PopFont();
 	}
 
 	ImGui::PushID(rowId);
@@ -583,11 +618,8 @@ static bool KeyBindRow(ImDrawList* dl, const char* rowId, const char* label, con
 		else {
 			float now = (float)GetTickCount64() / 1000.0f;
 			for (int key = 0x01; key < 0xFE; key++) {
-				if (key == VK_LSHIFT || key == VK_RSHIFT || key == VK_LCONTROL ||
-					key == VK_RCONTROL || key == VK_LMENU || key == VK_RMENU ||
-					key == VK_LWIN || key == VK_RWIN) continue;
-				// Botones del raton: ignorar sobre el badge o justo tras activar
-				if (key >= VK_LBUTTON && key <= VK_MBUTTON && (hovBadge || now - capT < 0.25f)) continue;
+				// Botones del raton: ignorar sobre el badge o justo tras empezar
+				if (key >= VK_LBUTTON && key <= VK_XBUTTON2 && (hovBadge || now - capT < 0.4f)) continue;
 				if (GetAsyncKeyState(key) & 0x8000) {
 					*v = key;
 					capturing[rid] = false;
@@ -997,9 +1029,14 @@ static void AimbotTab(ImDrawList* dl, float pulse)
 		BoneSelector(mdl, "##AimSiB", "TARGET (BONE)", &g_Globals.Silent.TargetBone, COL_GREEN, pulse);
 		SliderRow(mdl, "##AimSiSpd", "Velocidad de Bala", "%.0f m/s",
 			&g_Globals.Silent.BulletSpeed, 200.0f, 2000.0f, COL_GREEN, pulse);
+		SliderRow(mdl, "##AimSiAcc", "Precisión Hip-Fire", "%.2f",
+			&g_Globals.Silent.HipFireAccuracy, 0.5f, 1.0f, COL_GREEN, pulse);
 		if (Fonts::InterRegular14) ImGui::PushFont(Fonts::InterRegular14);
 		ImVec2 cp = ImGui::GetCursorScreenPos();
 		mdl->AddText(cp + ImVec2(12, 0), COL_TEXT_MUTED, "Elige el hueso del target. La velocidad de bala predice el movimiento del objetivo");
+		ImGui::Dummy(ImVec2(0, 8));
+		ImVec2 cp2 = ImGui::GetCursorScreenPos();
+		mdl->AddText(cp2 + ImVec2(12, 0), COL_TEXT_MUTED, "Precisión hip-fire: 1.0 = máxima, 0.5 = más permisivo");
 		if (Fonts::InterRegular14) ImGui::PopFont();
 		ImGui::Dummy(ImVec2(0, 24));
 	}
@@ -1123,7 +1160,7 @@ static void ExploitsTab(ImDrawList* dl, float pulse)
 		RowToggle(rdl, "##ExTk", "Tele Kill", "Acerca al enemigo a tu posicion",
 			&g_Globals.Exploits.TeleKill, COL_GREEN, pulse);
 		KeyBindRow(rdl, "##ExTkK", "Tecla (toggle)", "Presiona para activar/desactivar",
-			&g_Globals.Exploits.TeleKillKey, COL_GREEN, pulse);
+			&g_Globals.Exploits.TeleKillKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.TeleKill);
 		SliderRow(rdl, "##ExTkD", "Distancia de uso", "%0.1f m",
 			&g_Globals.Exploits.TeleKillDistance, 1.0f, 50.0f, COL_GREEN, pulse);
 		RowToggle(rdl, "##ExSt", "Speed Timer", "Acelera el tiempo y tu velocidad",
@@ -1133,25 +1170,37 @@ static void ExploitsTab(ImDrawList* dl, float pulse)
 		RowToggle(rdl, "##ExUp", "Under Player", "Tecla: hundir y volver",
 			&g_Globals.Exploits.UnderPlayer, COL_GREEN, pulse);
 		KeyBindRow(rdl, "##ExUpK", "Tecla activar", "Alterna hundido / visible",
-			&g_Globals.Exploits.UnderPlayerKey, COL_GREEN, pulse);
+			&g_Globals.Exploits.UnderPlayerKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.UnderPlayer);
 		RowToggle(rdl, "##ExFy", "Fly", "Sube X metros en Y al activar",
 			&g_Globals.Exploits.Fly, COL_GREEN, pulse);
 		KeyBindRow(rdl, "##ExFyK", "Tecla activar", "Alterna subir / volver",
-			&g_Globals.Exploits.FlyKey, COL_GREEN, pulse);
+			&g_Globals.Exploits.FlyKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.Fly);
 		SliderRow(rdl, "##ExFyH", "Altura", "%0.1f m",
 			&g_Globals.Exploits.FlyHeight, 0.1f, 10.0f, COL_GREEN, pulse);
 		RowToggle(rdl, "##ExTr", "Turn 180", "Voltea a los enemigos boca abajo",
 			&g_Globals.Exploits.TurnEnemies, COL_GREEN, pulse);
+		KeyBindRow(rdl, "##ExTrK", "Tecla activar", "Alterna boca abajo / normal",
+			&g_Globals.Exploits.TurnEnemiesKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.TurnEnemies);
 		RowToggle(rdl, "##ExPp", "Pull Player", "Jala enemigos a tu mira",
 			&g_Globals.Exploits.PullPlayer, COL_GREEN, pulse);
 		KeyBindRow(rdl, "##ExPpK", "Tecla activar", "Alterna jalar al disparar/apuntar",
-			&g_Globals.Exploits.PullPlayerKey, COL_GREEN, pulse);
+			&g_Globals.Exploits.PullPlayerKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.PullPlayer);
 		TriSelector(rdl, "##ExPpB", "Hueso", &g_Globals.Exploits.PullBone,
 			"HEAD", "SPINE", "ROOT", COL_GREEN, pulse);
 		SliderRow(rdl, "##ExPpD", "Distancia", "%0.0f m",
 			&g_Globals.Exploits.PullDis, 10.0f, 300.0f, COL_GREEN, pulse);
 		SliderRow(rdl, "##ExPpF", "FOV", "%0.0f px",
 			&g_Globals.Exploits.PullFov, 30.0f, 300.0f, COL_GREEN, pulse);
+		RowToggle(rdl, "##ExDp", "Down Player", "Baja 0.45m al enemigo al disparar",
+			&g_Globals.Exploits.DownPlayer, COL_GREEN, pulse);
+		KeyBindRow(rdl, "##ExDpK", "Tecla (mantener)", "Manten pulsada mientras disparas",
+			&g_Globals.Exploits.DownPlayerBind, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.DownPlayer);
+		RowToggle(rdl, "##ExGl", "Ghost Lag", "Retrasa tus paquetes (apareces laggeado)",
+			&g_Globals.Exploits.GhostLag, COL_GREEN, pulse);
+		KeyBindRow(rdl, "##ExGlK", "Tecla activar", "Alterna laggeado / normal",
+			&g_Globals.Exploits.GhostLagKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.GhostLag);
+		SliderRow(rdl, "##ExGlD", "Delay", "%0.0f ms",
+			&g_Globals.Exploits.GhostLagDelay, 100.0f, 10000.0f, COL_GREEN, pulse);
 	}
 	ImGui::EndChild();
 }

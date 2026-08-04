@@ -14,6 +14,7 @@
 #include <EspLines/Exploits/TeleKill.hpp>
 #include <EspLines/Exploits/UnderPlayer.hpp>
 #include <EspLines/Exploits/Fly.hpp>
+#include <EspLines/Exploits/DownPlayer.hpp>
 #include <EspLines/Exploits/TurnEnemies.hpp>
 #include <EspLines/Exploits/WeaponAttributes.hpp>
 #define NOMINMAX
@@ -90,6 +91,7 @@ void Data::Work() {
     TeleKill::Frame();
     UnderPlayer::Frame();
     Fly::Frame();
+    DownPlayer::Frame();
     TurnEnemies::Frame();
     PullPlayer::Frame();
 

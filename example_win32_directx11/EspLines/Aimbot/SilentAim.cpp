@@ -174,25 +174,29 @@ namespace Aim {
         // (ADS) el canon coincide con la camara y ahi la camara funciona.
         // Se usa el StartPosition real del arma si es valido (vector finito,
         // distinto de cero y pegado al jugador) y camara como respaldo.
+        // MEJORA: Rango dinamico basado en HipFireAccuracy para mejor precision
         // ==================================================================
         Vector3 rayOrigin = g_Globals.EspConfig.MainCamera;
         Vector3 startPos;
         if (Mem.Read<Vector3>(aimInstance + Offsets::StartPosition, startPos) && IsFiniteVector(startPos)) {
             float originGap = Vector3::Distance(startPos, g_Globals.EspConfig.MainCamera);
-            if (originGap > 0.05f && originGap < 3.0f) {
+            // Rango dinamico: mayor precision = rango mas estricto
+            // HipFireAccuracy 1.0 = rango estrecho (0.15f a 3.0f)
+            // HipFireAccuracy 0.5 = rango amplio (0.05f a 5.0f)
+            float minGap = 0.05f + (g_Globals.Silent.HipFireAccuracy * 0.1f);
+            float maxGap = 5.0f - (g_Globals.Silent.HipFireAccuracy * 2.0f);
+            if (originGap > minGap && originGap < maxGap) {
                 rayOrigin = startPos;
             }
         }
 
-        Vector3 aimPos = aimPosition;
+Vector3 aimPos = aimPosition;
 
         // ==================================================================
-        // PREDICCION DE BALA (lead): la bala tarda en llegar, y mientras
-        // vuela el target sigue moviendose. Se proyecta la posicion del
-        // target con su velocidad estimada por el tiempo de vuelo:
-        // lead = velocity * (distancia / velocidad de bala).
-        // El tiempo de vuelo se limita a 250ms para no sobre-corregir a
-        // distancias extremas o con balas muy lentas.
+        // PREDICCION DE BALA (lead + drop + herencia velocidad local):
+        // 1) Lead: target se mueve mientras la bala vuela
+        // 2) Drop: la bala cae por gravedad (compensamos apuntando mas arriba)
+        // 3) Herencia: la bala hereda velocidad del jugador local
         // ==================================================================
         Vector3 toTarget = aimPos - rayOrigin;
         float distToTarget = sqrtf(toTarget.X * toTarget.X + toTarget.Y * toTarget.Y + toTarget.Z * toTarget.Z);
@@ -200,13 +204,61 @@ namespace Aim {
             ? distToTarget / g_Globals.Silent.BulletSpeed
             : 0.0f;
         if (flightTime > 0.25f) flightTime = 0.25f;
+
+        // Lead: predecir movimiento del target
         aimPos += bestTarget->Velocity * flightTime;
 
+        // Drop: compensar caida de la bala (apuntar mas alto)
+        // drop = 0.5 * g * t^2  -->  apuntamos drop metros mas arriba
+        float drop = 0.0f;
+        if (g_Globals.Silent.Gravity > 0.0f) {
+            drop = 0.5f * g_Globals.Silent.Gravity * flightTime * flightTime;
+            aimPos.Y += drop;
+        }
+
+        // Herencia de velocidad del jugador local (la bala sale con tu velocidad)
+        Vector3 localVel = Vector3::Zero();
+        auto itLocal = g_Globals.EspConfig.Entities.find(g_Globals.EspConfig.LocalPlayer);
+        if (itLocal != g_Globals.EspConfig.Entities.end()) {
+            localVel = itLocal->second.Velocity;
+        }
+        if (IsFiniteVector(localVel)) {
+            aimPos += localVel * flightTime;
+        }
+
         Vector3 direction = aimPos - rayOrigin;
+        // Normalizar: el juego espera direccion unitaria
+        float dirLen = sqrtf(direction.X * direction.X + direction.Y * direction.Y + direction.Z * direction.Z);
+        if (dirLen > 0.001f) {
+            direction.X /= dirLen; direction.Y /= dirLen; direction.Z /= dirLen;
+        }
         if (!IsFiniteVector(direction)) {
             g_valid = false;
             return;
         }
+
+        // MEJORA: Suavizado de dirección basado en HipFireAccuracy
+        // Reducimos pequeñas variaciones que causan imprecisión en hip-fire
+        static Vector3 lastDirection = Vector3::Zero();
+        static bool firstFrame = true;
+        if (firstFrame) {
+            lastDirection = direction;
+            firstFrame = false;
+        }
+        else {
+            // Interpolación basada en la precisión configurada
+            float lerpFactor = g_Globals.Silent.HipFireAccuracy * 0.3f; // 0.15-0.30
+            direction.X = lastDirection.X + (direction.X - lastDirection.X) * lerpFactor;
+            direction.Y = lastDirection.Y + (direction.Y - lastDirection.Y) * lerpFactor;
+            direction.Z = lastDirection.Z + (direction.Z - lastDirection.Z) * lerpFactor;
+            
+            // Renormalizar después de la interpolación
+            dirLen = sqrtf(direction.X * direction.X + direction.Y * direction.Y + direction.Z * direction.Z);
+            if (dirLen > 0.001f) {
+                direction.X /= dirLen; direction.Y /= dirLen; direction.Z /= dirLen;
+            }
+        }
+        lastDirection = direction;
 
         // Instancia alternativa: IsFiring (0x540) como puntero (opcional)
         uint32_t aimAlternative = 0;
