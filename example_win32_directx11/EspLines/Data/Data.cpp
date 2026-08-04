@@ -16,6 +16,7 @@
 #include <EspLines/Exploits/Fly.hpp>
 #include <EspLines/Exploits/DownPlayer.hpp>
 #include <EspLines/Exploits/TurnEnemies.hpp>
+#include <EspLines/Exploits/Teleport.hpp>
 #include <EspLines/Exploits/WeaponAttributes.hpp>
 #define NOMINMAX
 #include <Windows.h>
@@ -94,6 +95,7 @@ void Data::Work() {
     DownPlayer::Frame();
     TurnEnemies::Frame();
     PullPlayer::Frame();
+    Teleport::Frame();
 
     // --- 5d. SPEED HACK (correr rapido) y MEJORA DE ARMAS (WeaponAttributes) ---
     // Speed hack: multiplica la velocidad de carrera/caida del jugador.

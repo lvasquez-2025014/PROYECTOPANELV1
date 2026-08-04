@@ -216,14 +216,16 @@ Vector3 aimPos = aimPosition;
             aimPos.Y += drop;
         }
 
-        // Herencia de velocidad del jugador local (la bala sale con tu velocidad)
+        // Herencia de velocidad del jugador local: la bala sale con tu velocidad,
+        // asi que el punto apuntado se resta con esa misma velocidad para que la
+        // bala NETA (dir del arma + heredada) aterrice exacto en el objetivo.
         Vector3 localVel = Vector3::Zero();
         auto itLocal = g_Globals.EspConfig.Entities.find(g_Globals.EspConfig.LocalPlayer);
         if (itLocal != g_Globals.EspConfig.Entities.end()) {
             localVel = itLocal->second.Velocity;
         }
         if (IsFiniteVector(localVel)) {
-            aimPos += localVel * flightTime;
+            aimPos -= localVel * flightTime;
         }
 
         Vector3 direction = aimPos - rayOrigin;
@@ -236,29 +238,6 @@ Vector3 aimPos = aimPosition;
             g_valid = false;
             return;
         }
-
-        // MEJORA: Suavizado de dirección basado en HipFireAccuracy
-        // Reducimos pequeñas variaciones que causan imprecisión en hip-fire
-        static Vector3 lastDirection = Vector3::Zero();
-        static bool firstFrame = true;
-        if (firstFrame) {
-            lastDirection = direction;
-            firstFrame = false;
-        }
-        else {
-            // Interpolación basada en la precisión configurada
-            float lerpFactor = g_Globals.Silent.HipFireAccuracy * 0.3f; // 0.15-0.30
-            direction.X = lastDirection.X + (direction.X - lastDirection.X) * lerpFactor;
-            direction.Y = lastDirection.Y + (direction.Y - lastDirection.Y) * lerpFactor;
-            direction.Z = lastDirection.Z + (direction.Z - lastDirection.Z) * lerpFactor;
-            
-            // Renormalizar después de la interpolación
-            dirLen = sqrtf(direction.X * direction.X + direction.Y * direction.Y + direction.Z * direction.Z);
-            if (dirLen > 0.001f) {
-                direction.X /= dirLen; direction.Y /= dirLen; direction.Z /= dirLen;
-            }
-        }
-        lastDirection = direction;
 
         // Instancia alternativa: IsFiring (0x540) como puntero (opcional)
         uint32_t aimAlternative = 0;

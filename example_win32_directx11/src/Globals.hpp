@@ -142,10 +142,10 @@ public:
         bool DownPlayer = false;
         int DownPlayerBind = 0;    // tecla: mantener pulsada mientras disparas
 
-        // ---- GHOST LAG (retrasa tus paquetes de salida con WinDivert) ----
-        bool GhostLag = false;
-        int GhostLagKey = 0; // tecla: activar/desactivar
-        float GhostLagDelay = 5000.0f; // ms de retraso (apareces laggeado)
+        // ---- TELEPORT (clava tu posicion en la del enemigo mas cercano) ----
+        bool Teleport = false;
+        int TeleportKey = 0;           // tecla: activar/desactivar
+        float TeleportDistance = 200.0f; // distancia maxima del enemigo (m)
 
         // ---- TECLAS TOGGLE (presionar para activar/desactivar) ----
         int FastSwitchKey = 0;

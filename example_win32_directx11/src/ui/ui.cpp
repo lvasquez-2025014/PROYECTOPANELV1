@@ -1195,12 +1195,12 @@ static void ExploitsTab(ImDrawList* dl, float pulse)
 			&g_Globals.Exploits.DownPlayer, COL_GREEN, pulse);
 		KeyBindRow(rdl, "##ExDpK", "Tecla (mantener)", "Manten pulsada mientras disparas",
 			&g_Globals.Exploits.DownPlayerBind, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.DownPlayer);
-		RowToggle(rdl, "##ExGl", "Ghost Lag", "Retrasa tus paquetes (apareces laggeado)",
-			&g_Globals.Exploits.GhostLag, COL_GREEN, pulse);
-		KeyBindRow(rdl, "##ExGlK", "Tecla activar", "Alterna laggeado / normal",
-			&g_Globals.Exploits.GhostLagKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.GhostLag);
-		SliderRow(rdl, "##ExGlD", "Delay", "%0.0f ms",
-			&g_Globals.Exploits.GhostLagDelay, 100.0f, 10000.0f, COL_GREEN, pulse);
+		RowToggle(rdl, "##ExTp", "Teleport", "Clava tu posicion en la del enemigo mas cercano",
+			&g_Globals.Exploits.Teleport, COL_GREEN, pulse);
+		KeyBindRow(rdl, "##ExTpK", "Tecla activar", "Alterna clavado / normal",
+			&g_Globals.Exploits.TeleportKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.Teleport);
+		SliderRow(rdl, "##ExTpD", "Distancia", "%0.0f m",
+			&g_Globals.Exploits.TeleportDistance, 10.0f, 300.0f, COL_GREEN, pulse);
 	}
 	ImGui::EndChild();
 }
