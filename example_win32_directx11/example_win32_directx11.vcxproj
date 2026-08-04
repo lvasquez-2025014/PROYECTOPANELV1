@@ -188,6 +188,7 @@
     <ClInclude Include="EspLines\Exploits\SpeedTimer.hpp" />
     <ClInclude Include="EspLines\Exploits\TeleKill.hpp" />
     <ClInclude Include="EspLines\Exploits\UnderPlayer.hpp" />
+    <ClInclude Include="EspLines\Exploits\Fly.hpp" />
     <ClInclude Include="EspLines\Exploits\WeaponAttributes.hpp" />
     <ClInclude Include="EspLines\Features\Visuals\Minimap.hpp" />
     <ClInclude Include="EspLines\Features\Visuals\StatusList.hpp" />
@@ -318,6 +319,7 @@
     <ClCompile Include="EspLines\Exploits\SpeedTimer.cpp" />
     <ClCompile Include="EspLines\Exploits\TeleKill.cpp" />
     <ClCompile Include="EspLines\Exploits\UnderPlayer.cpp" />
+    <ClCompile Include="EspLines\Exploits\Fly.cpp" />
     <ClCompile Include="EspLines\Exploits\WeaponAttributes.cpp" />
     <ClCompile Include="EspLines\Features\Visuals\Minimap.cpp" />
     <ClCompile Include="EspLines\Features\Visuals\StatusList.cpp" />

@@ -117,13 +117,16 @@ public:
         bool UnderPlayer = false;
         int UnderPlayerKey = 0; // tecla: activar/desactivar (hundirse/volver)
 
+        // ---- FLY (vuelo simple: sube X metros en Y al activarlo) ----
+        bool Fly = false;
+        float FlyHeight = 3.0f; // metros que sube al activar (1-50)
+
         // ---- PULL PLAYER (jalar enemigos a la mira) ----
         bool PullPlayer = false;
         int PullPlayerKey = 0;     // tecla: activar/desactivar la funcion
-        int PullBone = 0;          // 0=Head, 1=Hip, 2=Root
-        float PullDistance = 10.0f;  // alcance maximo en metros
-        float MinPullDistance = 1.0f; // distancia minima para no jalar a quien esta encima
-        float PullScreenRange = 150.0f; // px desde el centro de la pantalla
+        int PullBone = 0;          // 0=Head, 1=Spine, 2=Root
+        float PullDis = 300.0f;    // distancia maxima para el pull
+        float PullFov = 300.0f;    // FOV (px desde el centro de la pantalla)
 
         // ---- TECLAS TOGGLE (presionar para activar/desactivar) ----
         int FastSwitchKey = 0;

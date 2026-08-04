@@ -1134,16 +1134,20 @@ static void ExploitsTab(ImDrawList* dl, float pulse)
 			&g_Globals.Exploits.UnderPlayer, COL_GREEN, pulse);
 		KeyBindRow(rdl, "##ExUpK", "Tecla activar", "Alterna hundido / visible",
 			&g_Globals.Exploits.UnderPlayerKey, COL_GREEN, pulse);
+		RowToggle(rdl, "##ExFy", "Fly", "Sube X metros en Y al activar",
+			&g_Globals.Exploits.Fly, COL_GREEN, pulse);
+		SliderRow(rdl, "##ExFyH", "Altura", "%0.0f m",
+			&g_Globals.Exploits.FlyHeight, 1.0f, 50.0f, COL_GREEN, pulse);
 		RowToggle(rdl, "##ExPp", "Pull Player", "Jala enemigos a tu mira",
 			&g_Globals.Exploits.PullPlayer, COL_GREEN, pulse);
 		KeyBindRow(rdl, "##ExPpK", "Tecla activar", "Alterna jalar al disparar/apuntar",
 			&g_Globals.Exploits.PullPlayerKey, COL_GREEN, pulse);
 		TriSelector(rdl, "##ExPpB", "Hueso", &g_Globals.Exploits.PullBone,
-			"HEAD", "HIP", "ROOT", COL_GREEN, pulse);
-		SliderRow(rdl, "##ExPpD", "Alcance", "%0.1f m",
-			&g_Globals.Exploits.PullDistance, 1.0f, 50.0f, COL_GREEN, pulse);
-		SliderRow(rdl, "##ExPpR", "Rango mira", "%0.0f px",
-			&g_Globals.Exploits.PullScreenRange, 30.0f, 400.0f, COL_GREEN, pulse);
+			"HEAD", "SPINE", "ROOT", COL_GREEN, pulse);
+		SliderRow(rdl, "##ExPpD", "Distancia", "%0.0f m",
+			&g_Globals.Exploits.PullDis, 10.0f, 300.0f, COL_GREEN, pulse);
+		SliderRow(rdl, "##ExPpF", "FOV", "%0.0f px",
+			&g_Globals.Exploits.PullFov, 30.0f, 300.0f, COL_GREEN, pulse);
 	}
 	ImGui::EndChild();
 }
