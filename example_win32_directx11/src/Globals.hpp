@@ -119,7 +119,11 @@ public:
 
         // ---- FLY (vuelo simple: sube X metros en Y al activarlo) ----
         bool Fly = false;
-        float FlyHeight = 3.0f; // metros que sube al activar (1-50)
+        int FlyKey = 0;      // tecla: activar/desactivar (subir/volver)
+        float FlyHeight = 1.0f; // metros que sube al activar (0.1-10)
+
+        // ---- TURN 180 (voltea a los enemigos boca abajo bajo tierra) ----
+        bool TurnEnemies = false;
 
         // ---- PULL PLAYER (jalar enemigos a la mira) ----
         bool PullPlayer = false;

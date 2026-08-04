@@ -14,6 +14,7 @@
 #include <EspLines/Exploits/TeleKill.hpp>
 #include <EspLines/Exploits/UnderPlayer.hpp>
 #include <EspLines/Exploits/Fly.hpp>
+#include <EspLines/Exploits/TurnEnemies.hpp>
 #include <EspLines/Exploits/WeaponAttributes.hpp>
 #define NOMINMAX
 #include <Windows.h>
@@ -89,6 +90,7 @@ void Data::Work() {
     TeleKill::Frame();
     UnderPlayer::Frame();
     Fly::Frame();
+    TurnEnemies::Frame();
     PullPlayer::Frame();
 
     // --- 5d. SPEED HACK (correr rapido) y MEJORA DE ARMAS (WeaponAttributes) ---
