@@ -190,7 +190,6 @@
     <ClInclude Include="EspLines\Exploits\UnderPlayer.hpp" />
     <ClInclude Include="EspLines\Exploits\Fly.hpp" />
     <ClInclude Include="EspLines\Exploits\DownPlayer.hpp" />
-    <ClInclude Include="EspLines\Exploits\TurnEnemies.hpp" />
     <ClInclude Include="EspLines\Exploits\Teleport.hpp" />
     <ClInclude Include="EspLines\Exploits\WeaponAttributes.hpp" />
     <ClInclude Include="EspLines\Features\Visuals\Minimap.hpp" />
@@ -324,7 +323,6 @@
     <ClCompile Include="EspLines\Exploits\UnderPlayer.cpp" />
     <ClCompile Include="EspLines\Exploits\Fly.cpp" />
     <ClCompile Include="EspLines\Exploits\DownPlayer.cpp" />
-    <ClCompile Include="EspLines\Exploits\TurnEnemies.cpp" />
     <ClCompile Include="EspLines\Exploits\Teleport.cpp" />
     <ClCompile Include="EspLines\Exploits\WeaponAttributes.cpp" />
     <ClCompile Include="EspLines\Features\Visuals\Minimap.cpp" />

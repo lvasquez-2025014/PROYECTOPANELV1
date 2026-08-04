@@ -1177,10 +1177,6 @@ static void ExploitsTab(ImDrawList* dl, float pulse)
 			&g_Globals.Exploits.FlyKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.Fly);
 		SliderRow(rdl, "##ExFyH", "Altura", "%0.1f m",
 			&g_Globals.Exploits.FlyHeight, 0.1f, 10.0f, COL_GREEN, pulse);
-		RowToggle(rdl, "##ExTr", "Turn 180", "Voltea a los enemigos boca abajo",
-			&g_Globals.Exploits.TurnEnemies, COL_GREEN, pulse);
-		KeyBindRow(rdl, "##ExTrK", "Tecla activar", "Alterna boca abajo / normal",
-			&g_Globals.Exploits.TurnEnemiesKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.TurnEnemies);
 		RowToggle(rdl, "##ExPp", "Pull Player", "Jala enemigos a tu mira",
 			&g_Globals.Exploits.PullPlayer, COL_GREEN, pulse);
 		KeyBindRow(rdl, "##ExPpK", "Tecla activar", "Alterna jalar al disparar/apuntar",
