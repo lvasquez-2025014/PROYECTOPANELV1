@@ -7,8 +7,6 @@
 #include <EspLines/Math/WordToScreen.hpp>
 #define NOMINMAX
 #include <Windows.h>
-#include <cmath>
-#include <limits>
 #include <atomic>
 #include <thread>
 #include <chrono>
@@ -17,260 +15,32 @@
 namespace {
 
     // ==================================================================
-    // Compartidos entre el hilo principal (calcula) y el hilo de 1ms
-    // (escribe). SOLO std::atomic: el std::mutex crashea este emulador
-    // (verificado por bisect con git).
-    // El hilo secundario NO toca la cache de memoria, NO toca la lista
-    // de entidades y NO usa std::mutex: solo escribe con la direccion
-    // fisica que el hilo principal ya tradujo.
+    // PORT de BrutalSilnetAim.cs (genzkids no fame), con la infraestructura
+    // de escritura fisica de este proyecto:
+    //  - El hilo principal (SilentAimUpdate, 1x por frame) selecciona el
+    //    target mas cercano al centro de pantalla y traduce la direccion de
+    //    escritura a fisica (la cache SOLO la toca el hilo principal).
+    //  - El hilo de 1ms escribe la direccion con HookWrite directo a fisica.
+    // Logica identica al C#: delta (Head + 0.1) - StartPosition SIN
+    // normalizar, escrito en RayDir (sAim4) del arma (sAim2).
     // ==================================================================
     std::atomic<bool> g_running{ false };
     std::atomic<bool> g_valid{ false };
-    std::atomic<uint32_t> g_weaponPhys{ 0 }; // fisica de (aimInstance + RayDir)
-    std::atomic<uint32_t> g_altPhys{ 0 };    // fisica de (alternativa + RayDir)
+    std::atomic<uint32_t> g_weaponPhys{ 0 }; // fisica de (weaponData + sAim4)
     std::atomic<float> g_dirX{ 0.0f };
     std::atomic<float> g_dirY{ 0.0f };
     std::atomic<float> g_dirZ{ 0.0f };
     std::thread g_thread;
-
-    // Valida que un vector tenga componentes finitas (nunca NaN/Inf)
-    bool IsFiniteVector(const Vector3& v) {
-        return std::isfinite(v.X) && std::isfinite(v.Y) && std::isfinite(v.Z);
-    }
 
 } // namespace
 
 namespace Aim {
 
     // ====================================================================
-    // HILO PRINCIPAL (Data::Work, una vez por frame):
-    // selecciona el target y calcula la direccion. Traduce las direcciones
-    // a fisicas aqui (la cache solo la toca este hilo) y las publica en
-    // atomicos para que el hilo de 1ms solo tenga que escribir.
-    // ====================================================================
-    void SilentAimUpdate() {
-        // Switch del panel
-        if (!g_Globals.Silent.Enabled) {
-            g_valid = false;
-            return;
-        }
-
-        // Click izquierdo pulsado (como la version estable)
-        if ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0) {
-            g_valid = false;
-            return;
-        }
-
-        // Seguridad base
-        if (!g_Globals.EspConfig.Matrix) {
-            g_valid = false;
-            return;
-        }
-        if (g_Globals.EspConfig.Width <= 0 || g_Globals.EspConfig.Height <= 0) {
-            g_valid = false;
-            return;
-        }
-        uint32_t localPlayer = g_Globals.EspConfig.LocalPlayer;
-        if (localPlayer == 0) {
-            g_valid = false;
-            return;
-        }
-
-        // ==================================================================
-        // SELECCION DE TARGET: filtros configurados + dentro del FOV.
-        // Best target = el que mejor combina estar al centro del FOV
-        // (70%) y estar cerca del jugador local (30%).
-        // ==================================================================
-        Player* bestTarget = nullptr;
-        float bestCombined = FLT_MAX;
-        // Retencion de target: conserva la entidad que ya se esta disparando
-        // para que TODAS las balas del spray vayan a la misma entidad en vez
-        // de saltar entre las mas cercanas al crosshair. Se mantiene mientras
-        // su puntaje no sea el doble de malo que el mejor candidato nuevo.
-        static uint32_t s_lastTargetAddr = 0;
-        Vector2 screenCenter((float)g_Globals.EspConfig.Width / 2.0f, (float)g_Globals.EspConfig.Height / 2.0f);
-        const float maxFov = (float)g_Globals.AimBot.DistanceAim;
-        const float refDistance = 300.0f; // distancia de referencia para normalizar
-
-        for (auto& pair : g_Globals.EspConfig.Entities) {
-            Player* entity = &pair.second;
-
-            if (entity->IsDead || (g_Globals.AimBot.IgnoreKnocked && entity->IsKnocked)) continue;
-            if (g_Globals.AimBot.IgnoreBots && entity->IsBot) continue;
-            if (g_Globals.AimBot.OnlyEnemies && entity->IsTeam == Player::Bool3::True) continue;
-            if (entity->Head == Vector3::Zero()) continue;
-
-            // Proyeccion en pantalla
-            ImVec2 target2D = W2S::WorldToScreenImVec2(
-                g_Globals.EspConfig.ViewMatrix, entity->Head,
-                g_Globals.EspConfig.Width, g_Globals.EspConfig.Height);
-
-            // Debe estar en pantalla (con margen de seguridad)
-            if (target2D.x < 5 || target2D.y < 5 ||
-                target2D.x > g_Globals.EspConfig.Width - 5 || target2D.y > g_Globals.EspConfig.Height - 5)
-                continue;
-
-            float crosshairDist = Vector2::Distance(screenCenter, Vector2(target2D.x, target2D.y));
-
-            // Debe estar dentro del FOV
-            if (crosshairDist > maxFov) continue;
-
-            // Distancia fisica al jugador local
-            float dist3D = Vector3::Distance(g_Globals.EspConfig.MainCamera, entity->Head);
-
-            // Puntaje combinado: centro del FOV (70%) + cercania (30%)
-            float fovNorm = maxFov > 0.0f ? crosshairDist / maxFov : 1.0f;
-            float distNorm = dist3D / refDistance;
-            if (distNorm > 1.0f) distNorm = 1.0f;
-            float combined = fovNorm * 0.70f + distNorm * 0.30f;
-
-            // Bonus de continuidad: el target actual disparando se mantiene
-            // hasta que aparezca otro claramente mejor (puntaje a menos de la mitad)
-            if (entity->Address == s_lastTargetAddr) combined *= 0.5f;
-
-            if (combined < bestCombined) {
-                bestCombined = combined;
-                bestTarget = entity;
-            }
-        }
-
-        if (bestTarget == nullptr) {
-            s_lastTargetAddr = 0;
-            g_valid = false;
-            return;
-        }
-        s_lastTargetAddr = bestTarget->Address;
-
-        // Hueso apuntado (Head / Neck / Hip), selector propio del silent
-        Vector3 aimPosition;
-        switch (g_Globals.Silent.TargetBone) {
-        case Config::Bone::Neck:
-            aimPosition = bestTarget->Neck != Vector3::Zero() ? bestTarget->Neck : bestTarget->Head;
-            break;
-        case Config::Bone::Hip:
-            aimPosition = bestTarget->Hip != Vector3::Zero() ? bestTarget->Hip : bestTarget->Head;
-            break;
-        case Config::Bone::Head:
-        default:
-            aimPosition = bestTarget->Head;
-            break;
-        }
-        if (aimPosition == Vector3::Zero()) {
-            g_valid = false;
-            return;
-        }
-
-        // Instancia principal: LastAimingInfoFromWeapon (0x978)
-        uint32_t aimInstance = 0;
-        if (!Mem.Read<uint32_t>(localPlayer + Offsets::LastAimingInfoFromWeapon, aimInstance) || aimInstance == 0) {
-            g_valid = false;
-            return;
-        }
-
-        // ==================================================================
-        // ORIGEN DEL RAYO: al disparar a la cadera (hip-fire) el proyectil
-        // sale del canon, que queda mas abajo que la camara; apuntar desde
-        // la camara entonces desvia las balas al pecho. Cuando se apunta
-        // (ADS) el canon coincide con la camara y ahi la camara funciona.
-        // Se usa el StartPosition real del arma si es valido (vector finito,
-        // distinto de cero y pegado al jugador) y camara como respaldo.
-        // MEJORA: Rango dinamico basado en HipFireAccuracy para mejor precision
-        // ==================================================================
-        Vector3 rayOrigin = g_Globals.EspConfig.MainCamera;
-        Vector3 startPos;
-        if (Mem.Read<Vector3>(aimInstance + Offsets::StartPosition, startPos) && IsFiniteVector(startPos)) {
-            float originGap = Vector3::Distance(startPos, g_Globals.EspConfig.MainCamera);
-            // Rango dinamico: mayor precision = rango mas estricto
-            // HipFireAccuracy 1.0 = rango estrecho (0.15f a 3.0f)
-            // HipFireAccuracy 0.5 = rango amplio (0.05f a 5.0f)
-            float minGap = 0.05f + (g_Globals.Silent.HipFireAccuracy * 0.1f);
-            float maxGap = 5.0f - (g_Globals.Silent.HipFireAccuracy * 2.0f);
-            if (originGap > minGap && originGap < maxGap) {
-                rayOrigin = startPos;
-            }
-        }
-
-Vector3 aimPos = aimPosition;
-
-        // ==================================================================
-        // PREDICCION DE BALA (lead + drop + herencia velocidad local):
-        // 1) Lead: target se mueve mientras la bala vuela
-        // 2) Drop: la bala cae por gravedad (compensamos apuntando mas arriba)
-        // 3) Herencia: la bala hereda velocidad del jugador local
-        // ==================================================================
-        Vector3 toTarget = aimPos - rayOrigin;
-        float distToTarget = sqrtf(toTarget.X * toTarget.X + toTarget.Y * toTarget.Y + toTarget.Z * toTarget.Z);
-        float flightTime = g_Globals.Silent.BulletSpeed > 10.0f
-            ? distToTarget / g_Globals.Silent.BulletSpeed
-            : 0.0f;
-        if (flightTime > 0.25f) flightTime = 0.25f;
-
-        // Lead: predecir movimiento del target
-        aimPos += bestTarget->Velocity * flightTime;
-
-        // Drop: compensar caida de la bala (apuntar mas alto)
-        // drop = 0.5 * g * t^2  -->  apuntamos drop metros mas arriba
-        float drop = 0.0f;
-        if (g_Globals.Silent.Gravity > 0.0f) {
-            drop = 0.5f * g_Globals.Silent.Gravity * flightTime * flightTime;
-            aimPos.Y += drop;
-        }
-
-        // Herencia de velocidad del jugador local: la bala sale con tu velocidad,
-        // asi que el punto apuntado se resta con esa misma velocidad para que la
-        // bala NETA (dir del arma + heredada) aterrice exacto en el objetivo.
-        Vector3 localVel = Vector3::Zero();
-        auto itLocal = g_Globals.EspConfig.Entities.find(g_Globals.EspConfig.LocalPlayer);
-        if (itLocal != g_Globals.EspConfig.Entities.end()) {
-            localVel = itLocal->second.Velocity;
-        }
-        if (IsFiniteVector(localVel)) {
-            aimPos -= localVel * flightTime;
-        }
-
-        Vector3 direction = aimPos - rayOrigin;
-        // Normalizar: el juego espera direccion unitaria
-        float dirLen = sqrtf(direction.X * direction.X + direction.Y * direction.Y + direction.Z * direction.Z);
-        if (dirLen > 0.001f) {
-            direction.X /= dirLen; direction.Y /= dirLen; direction.Z /= dirLen;
-        }
-        if (!IsFiniteVector(direction)) {
-            g_valid = false;
-            return;
-        }
-
-        // Instancia alternativa: IsFiring (0x540) como puntero (opcional)
-        uint32_t aimAlternative = 0;
-        Mem.Read<uint32_t>(localPlayer + Offsets::IsFiring, aimAlternative);
-
-        // Traducir a fisicas AQUI: la cache solo la usa el hilo principal
-        uintptr_t physWeapon = 0, physAlt = 0;
-        if (!Mem.Convert(aimInstance + Offsets::RayDir, physWeapon)) {
-            g_valid = false;
-            return;
-        }
-        if (aimAlternative != 0) {
-            Mem.Convert(aimAlternative + Offsets::RayDir, physAlt);
-        }
-
-        // Publicar para el hilo de 1ms
-        g_weaponPhys = (uint32_t)physWeapon;
-        g_altPhys = (uint32_t)physAlt;
-        g_dirX = direction.X;
-        g_dirY = direction.Y;
-        g_dirZ = direction.Z;
-        g_valid = true;
-    }
-
-    // ====================================================================
-    // HILO DE ESCRITURA: escribe la direccion compartida en RayDir de
-    // ambas instancias con PGMPhysSimpleWriteGCPhys directo (HookWrite),
-    // SIN pasar por la cache ni estructuras compartidas.
-    // Optimizado para no robar FPS:
-    //  - Sin target (g_valid == false): duerme, NO quema CPU.
-    //  - Con target: escrituras en rafaga cada ~20us con espera por QPC
-    //    (sin sleep), suficiente cobertura para el instante del disparo.
-    //  - Sin timeBeginPeriod: el loop usa QPC, no el timer del sistema.
+    // HILO DE ESCRITURA: escribe el delta en RayDir (weaponData + sAim4)
+    // con PGMPhysSimpleWriteGCPhys directo (HookWrite), SIN pasar por la
+    // cache. Rafaga de 60 escrituras cada ~20us con espera QPC: cubre el
+    // instante exacto del disparo igual que el loop del C#.
     // ====================================================================
     static void Worker() {
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
@@ -285,12 +55,7 @@ Vector3 aimPos = aimPosition;
                     Vector3 dir(g_dirX, g_dirY, g_dirZ);
                     for (int i = 0; i < 60; i++)
                         Mem.HookWrite(Mem.pVMAddr, g_weaponPhys, (void*)&dir, sizeof(Vector3));
-                    if (g_altPhys != 0) {
-                        for (int i = 0; i < 60; i++)
-                            Mem.HookWrite(Mem.pVMAddr, g_altPhys, (void*)&dir, sizeof(Vector3));
-                    }
 
-                    // Espera de ~20 us (spin, sin sleep)
                     LARGE_INTEGER now;
                     QueryPerformanceCounter(&now);
                     LONGLONG target = now.QuadPart + step;
@@ -321,6 +86,161 @@ Vector3 aimPos = aimPosition;
         g_running = false;
         if (g_thread.joinable())
             g_thread.join();
+    }
+
+    // ====================================================================
+    // UNA VEZ POR FRAME (Data::Work). Logica identica al BrutalSilnetAim.cs:
+    // 1) target = entidad viva/visible mas cercana al centro de pantalla
+    // 2) SIN gate de IsFiring: la direccion se publica y se escribe de forma
+    //    continua mientras haya target en el FOV, asi la PRIMERA bala ya
+    //    sale apuntada (el juego solo consume RayDir en el instante del tiro)
+    //    adjustedTauko = Head + (0, +0.1, 0)
+    //    startPos = weaponData + sAim3 (StartPosition del canon)
+    //    aimPosition = adjustedTauko - startPos   <- delta SIN normalizar
+    //    Write Vector3 en weaponData + sAim4 (RayDir)
+    // ====================================================================
+    void SilentAimUpdate() {
+        // Switch del panel
+        if (!g_Globals.Silent.Enabled) {
+            g_valid = false;
+            return;
+        }
+
+        // Precondiciones base (como el C#: Width/Height y matrix)
+        if (g_Globals.EspConfig.Width <= 0 || g_Globals.EspConfig.Height <= 0 || !g_Globals.EspConfig.Matrix) {
+            g_valid = false;
+            return;
+        }
+        uint32_t localPlayer = g_Globals.EspConfig.LocalPlayer;
+        if (localPlayer == 0) {
+            g_valid = false;
+            return;
+        }
+
+        // ---- 1. SELECCION DE TARGET (mejoras del backup): DENTRO del FOV,
+        // con margen de pantalla, filtros de bots/enemigos y RETENCION de
+        // target. El backup de la version estable probaba que sin retencion
+        // el spray salta entre enemigos y las balas se van a donde quieren:
+        // se conserva la entidad que ya se dispara hasta que aparezca otra
+        // claramente mejor (puntaje a menos de la mitad).
+        Player* target = nullptr;
+        float bestCombined = FLT_MAX;
+        static uint32_t s_lastTargetAddr = 0;
+
+        const float maxFov = (float)g_Globals.AimBot.DistanceAim; // px desde el centro
+        const float refDistance = 300.0f; // distancia de referencia para normalizar
+        const Vector2 screenCenter(
+            (float)g_Globals.EspConfig.Width / 2.0f,
+            (float)g_Globals.EspConfig.Height / 2.0f);
+
+        for (auto& pair : g_Globals.EspConfig.Entities) {
+            Player* entity = &pair.second;
+
+            // filtros del C# + backup: IsKnown / IsDead / IgnoreKnocked / solo enemigos.
+            // OJO: NO se filtran bots (como el C# original) - los bots tambien
+            // se apuntan. Si alguien activa IgnoreBots del aimbot aqui no aplica.
+            if (!entity->IsKnown || entity->IsDead) continue;
+            if (g_Globals.AimBot.IgnoreKnocked && entity->IsKnocked) continue;
+            if (g_Globals.AimBot.OnlyEnemies && entity->IsTeam == Player::Bool3::True) continue;
+            if (g_Globals.Silent.OnlyVisible && !entity->IsVisible) continue;
+            if (entity->Head == Vector3::Zero()) continue;
+
+            Vector2 head2D = W2S::WorldToScreen(
+                g_Globals.EspConfig.ViewMatrix, entity->Head,
+                g_Globals.EspConfig.Width, g_Globals.EspConfig.Height);
+
+            // fuera de pantalla o detras de la camara (W2S devuelve -9999)
+            if (head2D.X < -5000.0f || head2D.Y < -5000.0f) continue;
+
+            // margen de seguridad: debe estar dentro de la pantalla
+            if (head2D.X < 5.0f || head2D.Y < 5.0f ||
+                head2D.X > g_Globals.EspConfig.Width - 5.0f || head2D.Y > g_Globals.EspConfig.Height - 5.0f)
+                continue;
+
+            const float crosshairDist = Vector2::Distance(screenCenter, head2D);
+
+            // FUERA DEL FOV: se ignora (aunque sea el mas cercano al centro)
+            if (crosshairDist > maxFov) continue;
+
+            // Distancia fisica al jugador local (cercania = 30% del puntaje)
+            const float dist3D = Vector3::Distance(g_Globals.EspConfig.MainCamera, entity->Head);
+
+            // Puntaje combinado: centro del FOV (70%) + cercania (30%)
+            float fovNorm = maxFov > 0.0f ? crosshairDist / maxFov : 1.0f;
+            float distNorm = dist3D / refDistance;
+            if (distNorm > 1.0f) distNorm = 1.0f;
+            float combined = fovNorm * 0.70f + distNorm * 0.30f;
+
+            // RETENCION: el target actual se mantiene (mitad de puntaje)
+            // hasta que aparezca otro claramente mejor
+            if (entity->Address == s_lastTargetAddr) combined *= 0.5f;
+
+            if (combined < bestCombined) {
+                bestCombined = combined;
+                target = entity;
+            }
+        }
+
+        if (target == nullptr) {
+            s_lastTargetAddr = 0;
+            g_valid = false;
+            return;
+        }
+        s_lastTargetAddr = target->Address;
+
+        // ---- 2. SIN gate de isShooting: la direccion se escribe SIEMPRE
+        // que haya un target valido en el FOV (el juego solo consume RayDir
+        // en el instante del disparo). El gate por frame hacia que la 1a
+        // bala saliera con la direccion vieja (el flag del juego recien se
+        // activa al disparar): habia que soltar 2-3 balas para que entrara.
+
+        // ---- 3. weaponData (sAim2 = 0x978) ----
+        uint32_t weaponData = 0;
+        if (!Mem.Read<uint32_t>(localPlayer + Offsets::sAim2, weaponData) || weaponData == 0) {
+            g_valid = false;
+            return;
+        }
+
+        // ---- 4. Delta bruto: (Head + 0.1) - StartPosition ----
+        // Sane-check (del backup): nunca escribir un vector NaN/Inf o el
+        // origen zero del juego -> era una fuente de balas a la deriva.
+        if (!std::isfinite(target->Head.X) || !std::isfinite(target->Head.Y) || !std::isfinite(target->Head.Z)) {
+            g_valid = false;
+            return;
+        }
+
+        Vector3 adjustedTauko = target->Head;
+        adjustedTauko.Y += 0.1f;
+
+        Vector3 startPos;
+        if (!Mem.Read<Vector3>(weaponData + Offsets::sAim3, startPos)) {
+            g_valid = false;
+            return;
+        }
+        if (!std::isfinite(startPos.X) || !std::isfinite(startPos.Y) || !std::isfinite(startPos.Z)) {
+            g_valid = false;
+            return;
+        }
+
+        Vector3 aimPosition = adjustedTauko - startPos;
+        if (!std::isfinite(aimPosition.X) || !std::isfinite(aimPosition.Y) || !std::isfinite(aimPosition.Z)) {
+            g_valid = false;
+            return;
+        }
+
+        // ---- 5. Traducir a fisica AQUI (cache solo en hilo principal) ----
+        uintptr_t physWeapon = 0;
+        if (!Mem.Convert(weaponData + Offsets::sAim4, physWeapon)) {
+            g_valid = false;
+            return;
+        }
+
+        // Publicar para el hilo de escritura
+        g_weaponPhys = (uint32_t)physWeapon;
+        g_dirX = aimPosition.X;
+        g_dirY = aimPosition.Y;
+        g_dirZ = aimPosition.Z;
+        g_valid = true;
     }
 
 } // namespace Aim

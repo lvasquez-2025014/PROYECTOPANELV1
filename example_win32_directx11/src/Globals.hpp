@@ -82,6 +82,8 @@ public:
         float Gravity = 12.5f;
         // Precisión de hip-fire (0.0-1.0): 1.0 = máxima precisión, 0.5 = 50% más permisivo
         float HipFireAccuracy = 1.0f;
+        // Solo apunta a entidades VISIBLES (Avatar_IsVisible), como el ESP
+        bool OnlyVisible = false;
     }
     Silent;
     struct Exploits {
@@ -102,6 +104,7 @@ public:
         bool FastSwitch = false;  // cambio de arma instantaneo
         bool NoRecoil = false;    // sin retroceso
         bool NoReload = false;    // sin recarga
+        bool UnlimitedAmmo = false; // municion infinita (PlayerAttributes + 0xE0)
 
         // ---- SPEED TIMER (acelera el tiempo del juego) ----
         bool SpeedTimer = false;
@@ -110,6 +113,21 @@ public:
         // ---- SPEED HACK (correr rapido: RunSpeedUpScale/FallingSpeedUpScale) ----
         bool SpeedHack = false;
         float SpeedHackMultiplier = 1.5f;
+
+        // ---- JUMP (salto alto: BuffEcaJumpHeightScale) ----
+        bool JumpHack = false;
+        int JumpHackKey = 0;      // tecla: activar/desactivar (opcional)
+        float JumpHeightMultiplier = 2.0f;
+
+        // ---- VISION (FOV de la camara de seguimiento) ----
+        bool VisionHack = false;
+        int VisionHackKey = 0;    // tecla: activar/desactivar (opcional)
+        float VisionSlider = 6.0f; // FOV a escribir en followCamera + 0x44 (escala 0-10)
+
+        // ---- CAIDA RAPIDA (velocidad de caida) ----
+        bool FastFall = false;
+        int FastFallKey = 0;       // tecla: activar/desactivar (opcional)
+        float FastFallSpeed = 25.0f; // velocidad de caida a escribir en +0x15C/+0x160
 
         // ---- MEJORA DE ARMAS (WeaponAttributes) ----
         bool WeaponAttributes = false;
@@ -134,19 +152,48 @@ public:
         float PullDis = 300.0f;    // distancia maxima para el pull
         float PullFov = 300.0f;    // FOV (px desde el centro de la pantalla)
 
-        // ---- DOWN PLAYER (baja 0.45m al enemigo que apuntas) ----
-        bool DownPlayer = false;
-        int DownPlayerBind = 0;    // tecla: mantener pulsada mientras disparas
-
         // ---- TELEPORT (clava tu posicion en la del enemigo mas cercano) ----
         bool Teleport = false;
         int TeleportKey = 0;           // tecla: activar/desactivar
         float TeleportDistance = 200.0f; // distancia maxima del enemigo (m)
 
+        // ---- TURN 180 / MURCIELAGO (voltea a todos los enemigos patas arriba) ----
+        bool TurnEnemies = false;      // flip 180 vertical: cabeza <-> pies en los enemigos
+        int TurnEnemiesKey = 0;        // tecla: activar/desactivar
+
+        // ---- SPIN BOT (hace girar a TU personaje sobre su eje vertical) ----
+        bool SpinBot = false;          // gira tu personaje constantemente
+        int SpinBotKey = 0;            // tecla: activar/desactivar
+        float SpinBotSpeed = 360.0f;   // velocidad de giro en grados/segundo
+
+        // ---- TP WALL (avanza un paso hacia donde mira la camara) ----
+        bool TpWall = false;           // refleja activacion momentanea (1 clic = 1 paso)
+        int TpWallKey = 0;             // tecla: cada pulsacion = 1 paso
+        float TpWallDistance = 1.0f;   // metros por paso (0.1-10)
+
+// ---- GHOST LAG / FAKE LAG / TELEPORT (WinDivert: paquetes) ----
+        // GhostLag: retrasa TUS salientes -> el enemigo te ve congelado pero
+        //    tu dano entra (el movimiento es lo que se retiene/reenvia).
+        // FakeLag: retiene/descarta salientes de movimiento -> congela a los
+        //    enemigos; al desactivar reenvia y tu dano acumulado les cuenta.
+        // TeleportLag: corta salientes de movimiento + correcciones entrantes:
+        //    te ven congelado en A y solo te ven al llegar a B. NO restaura
+        //    la posicion original al desactivar.
+        bool GhostLag = false;         // retrasa tus paquetes salientes
+        int GhostLagKey = 0;           // tecla: activar/desactivar
+        int GhostLagDelay = 5000;      // ms de retardo al reenviar cada paquete (ref: 5000)
+        bool FakeLag = false;          // retarda en AMBOS sentidos (congela)
+        int FakeLagKey = 0;            // tecla: activar/desactivar
+        int FakeLagDelay = 2000;       // ms de retardo antes de reenviar (ref: 2000)
+        bool TeleportLag = false;      // corta movimiento y correcciones (teleport por red)
+        int TeleportLagKey = 0;        // tecla: activar/desactivar
+        int TeleportLagMode = 0;       // 0 = solo saliente, 1 = ambos sentidos
+
         // ---- TECLAS TOGGLE (presionar para activar/desactivar) ----
         int FastSwitchKey = 0;
         int NoRecoilKey = 0;
         int NoReloadKey = 0;
+        int UnlimitedAmmoKey = 0;
 
     }
     Exploits;

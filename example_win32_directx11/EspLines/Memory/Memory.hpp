@@ -117,6 +117,18 @@ public:
         return HookRead(pVMAddr, physAddress, data, sizeof(T)) == 0;
     }
 
+    // Lectura SIN caché física obsoleta: borra la traduccion guardada y
+    // vuelve a convertir. Usado por exploits que escriben a objetos que el
+    // juego puede reasignar (spinbot): reusar la traduccion vieja escribia
+    // a memoria liberada y cerraba el emulador.
+    template<typename T>
+    bool ReadFresh(uintptr_t address, T& out) {
+        Cache.erase(address);
+        uintptr_t physAddress;
+        if (!Convert(address, physAddress)) return false;
+        return HookRead(pVMAddr, physAddress, &out, sizeof(T)) == 0;
+    }
+
     template<typename T>
     bool ReadArray(uintptr_t address, std::vector<T>& array) {
         uintptr_t convertedAddress;

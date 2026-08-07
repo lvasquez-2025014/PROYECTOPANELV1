@@ -146,7 +146,8 @@
       <AdditionalIncludeDirectories>
       </AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
-      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;MCH_EXPORTS;_USRDLL;_CRT_SECURE_NO_WARNINGS;IMGUI_DEFINE_MATH_OPERATORS;POCO_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -154,7 +155,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>dwmapi.lib;d3d11.lib;d3dx11.lib;dxgi.lib;d3dcompiler.lib;iphlpapi.lib;PocoFoundationmd.lib;libcurl_a.lib</AdditionalDependencies>
+      <AdditionalDependencies>dwmapi.lib;d3d11.lib;d3dx11.lib;dxgi.lib;d3dcompiler.lib;iphlpapi.lib;PocoFoundationmd.lib;libcurl_a.lib;$(ProjectDir)\win64\WinDivert.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(DXSDK_DIR)/Lib/x64;$(ProjectDir)\ext\Foundation\Lib\;$(ProjectDir)\Auth\Curl\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
@@ -184,13 +185,16 @@
     <ClInclude Include="EspLines\Exploits\FastSwitch.hpp" />
     <ClInclude Include="EspLines\Exploits\NoRecoil.hpp" />
     <ClInclude Include="EspLines\Exploits\NoReload.hpp" />
+    <ClInclude Include="EspLines\Exploits\UnlimitedAmmo.hpp" />
     <ClInclude Include="EspLines\Exploits\PullPlayer.hpp" />
     <ClInclude Include="EspLines\Exploits\SpeedTimer.hpp" />
     <ClInclude Include="EspLines\Exploits\TeleKill.hpp" />
+    <ClInclude Include="EspLines\Exploits\TurnEnemies.hpp" />
+    <ClInclude Include="EspLines\Exploits\SpinBot.hpp" />
     <ClInclude Include="EspLines\Exploits\UnderPlayer.hpp" />
     <ClInclude Include="EspLines\Exploits\Fly.hpp" />
-    <ClInclude Include="EspLines\Exploits\DownPlayer.hpp" />
     <ClInclude Include="EspLines\Exploits\Teleport.hpp" />
+    <ClInclude Include="EspLines\Exploits\LagManager.hpp" />
     <ClInclude Include="EspLines\Exploits\WeaponAttributes.hpp" />
     <ClInclude Include="EspLines\Features\Visuals\Minimap.hpp" />
     <ClInclude Include="EspLines\Features\Visuals\StatusList.hpp" />
@@ -216,6 +220,7 @@
     <ClInclude Include="ext\ImGui\imstb_textedit.h" />
     <ClInclude Include="ext\ImGui\imstb_truetype.h" />
     <ClInclude Include="FontAwesome.hpp" />
+    <ClInclude Include="win64\windivert.h" />
     <ClInclude Include="src\adb\Adb.hpp" />
     <ClInclude Include="src\adb\adb_utils.hpp" />
     <ClInclude Include="src\Fonts\Fonts.hpp" />
@@ -317,13 +322,17 @@
     <ClCompile Include="EspLines\Exploits\FastSwitch.cpp" />
     <ClCompile Include="EspLines\Exploits\NoRecoil.cpp" />
     <ClCompile Include="EspLines\Exploits\NoReload.cpp" />
+    <ClCompile Include="EspLines\Exploits\UnlimitedAmmo.cpp" />
     <ClCompile Include="EspLines\Exploits\PullPlayer.cpp" />
     <ClCompile Include="EspLines\Exploits\SpeedTimer.cpp" />
     <ClCompile Include="EspLines\Exploits\TeleKill.cpp" />
+    <ClCompile Include="EspLines\Exploits\TurnEnemies.cpp" />
+    <ClCompile Include="EspLines\Exploits\SpinBot.cpp" />
+    <ClCompile Include="EspLines\Exploits\TpWall.cpp" />
     <ClCompile Include="EspLines\Exploits\UnderPlayer.cpp" />
     <ClCompile Include="EspLines\Exploits\Fly.cpp" />
-    <ClCompile Include="EspLines\Exploits\DownPlayer.cpp" />
     <ClCompile Include="EspLines\Exploits\Teleport.cpp" />
+    <ClCompile Include="EspLines\Exploits\LagManager.cpp" />
     <ClCompile Include="EspLines\Exploits\WeaponAttributes.cpp" />
     <ClCompile Include="EspLines\Features\Visuals\Minimap.cpp" />
     <ClCompile Include="EspLines\Features\Visuals\StatusList.cpp" />

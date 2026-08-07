@@ -492,10 +492,41 @@ static void ModeCardHeader(ImDrawList* dl, const char* title, const char* desc, 
 }
 
 // ============================================================================
+// EVITA TECLAS DUPLICADAS: al asignar una tecla nueva a una funcion, se
+// limpia de TODOS los otros binds para que una pulsacion no active dos
+// funciones a la vez (causa de toggles "que no funcionan bien").
+// ============================================================================
+static void ClearKeyFromOtherBinds(int key, const int* keepField)
+{
+	if (key <= 0) return;
+	if (keepField != &g_Globals.Exploits.TeleKillKey) if (g_Globals.Exploits.TeleKillKey == key) g_Globals.Exploits.TeleKillKey = 0;
+	if (keepField != &g_Globals.Exploits.UnderPlayerKey) if (g_Globals.Exploits.UnderPlayerKey == key) g_Globals.Exploits.UnderPlayerKey = 0;
+	if (keepField != &g_Globals.Exploits.FlyKey) if (g_Globals.Exploits.FlyKey == key) g_Globals.Exploits.FlyKey = 0;
+	if (keepField != &g_Globals.Exploits.PullPlayerKey) if (g_Globals.Exploits.PullPlayerKey == key) g_Globals.Exploits.PullPlayerKey = 0;
+	if (keepField != &g_Globals.Exploits.TeleportKey) if (g_Globals.Exploits.TeleportKey == key) g_Globals.Exploits.TeleportKey = 0;
+	if (keepField != &g_Globals.Exploits.GhostLagKey) if (g_Globals.Exploits.GhostLagKey == key) g_Globals.Exploits.GhostLagKey = 0;
+	if (keepField != &g_Globals.Exploits.FakeLagKey) if (g_Globals.Exploits.FakeLagKey == key) g_Globals.Exploits.FakeLagKey = 0;
+	if (keepField != &g_Globals.Exploits.TeleportLagKey) if (g_Globals.Exploits.TeleportLagKey == key) g_Globals.Exploits.TeleportLagKey = 0;
+	if (keepField != &g_Globals.Exploits.TurnEnemiesKey) if (g_Globals.Exploits.TurnEnemiesKey == key) g_Globals.Exploits.TurnEnemiesKey = 0;
+	if (keepField != &g_Globals.Exploits.SpinBotKey) if (g_Globals.Exploits.SpinBotKey == key) g_Globals.Exploits.SpinBotKey = 0;
+	if (keepField != &g_Globals.Exploits.TpWallKey) if (g_Globals.Exploits.TpWallKey == key) g_Globals.Exploits.TpWallKey = 0;
+	if (keepField != &g_Globals.Exploits.FastSwitchKey) if (g_Globals.Exploits.FastSwitchKey == key) g_Globals.Exploits.FastSwitchKey = 0;
+	if (keepField != &g_Globals.Exploits.NoRecoilKey) if (g_Globals.Exploits.NoRecoilKey == key) g_Globals.Exploits.NoRecoilKey = 0;
+	if (keepField != &g_Globals.Exploits.NoReloadKey) if (g_Globals.Exploits.NoReloadKey == key) g_Globals.Exploits.NoReloadKey = 0;
+	if (keepField != &g_Globals.Exploits.UnlimitedAmmoKey) if (g_Globals.Exploits.UnlimitedAmmoKey == key) g_Globals.Exploits.UnlimitedAmmoKey = 0;
+	if (keepField != &g_Globals.Exploits.JumpHackKey) if (g_Globals.Exploits.JumpHackKey == key) g_Globals.Exploits.JumpHackKey = 0;
+	if (keepField != &g_Globals.Exploits.VisionHackKey) if (g_Globals.Exploits.VisionHackKey == key) g_Globals.Exploits.VisionHackKey = 0;
+	if (keepField != &g_Globals.Exploits.FastFallKey) if (g_Globals.Exploits.FastFallKey == key) g_Globals.Exploits.FastFallKey = 0;
+	if (keepField != &g_Globals.AimBot.AimbotBind) if (g_Globals.AimBot.AimbotBind == key) g_Globals.AimBot.AimbotBind = 0;
+	if (keepField != &g_Globals.General.MenuKey) if (g_Globals.General.MenuKey == key) g_Globals.General.MenuKey = 0;
+}
+
+// ============================================================================
 // NOMBRE LEGIBLE DE UNA TECLA VK
 // ============================================================================
 static const char* KeyName(int vk)
 {
+	if (vk <= 0 || vk == VK_CANCEL) return "NINGUNA";
 	switch (vk) {
 	case VK_LBUTTON: return "CLICK IZQ";
 	case VK_RBUTTON: return "CLICK DER";
@@ -618,10 +649,31 @@ static bool KeyBindRow(ImDrawList* dl, const char* rowId, const char* label, con
 		else {
 			float now = (float)GetTickCount64() / 1000.0f;
 			for (int key = 0x01; key < 0xFE; key++) {
-				// Botones del raton: ignorar sobre el badge o justo tras empezar
-				if (key >= VK_LBUTTON && key <= VK_XBUTTON2 && (hovBadge || now - capT < 0.4f)) continue;
+				// ESC desasigna la tecla: la funcion queda en "NINGUNA" y
+				// no se captura ESC como tecla asignada.
+				if (key == VK_ESCAPE) {
+					if (GetAsyncKeyState(key) & 0x8000) {
+						*v = 0;
+						capturing[rid] = false;
+						break;
+					}
+					continue;
+				}
+				// INSERT esta reservada SIEMPRE para abrir/cerrar el menu:
+				// nunca se puede asignar a una funcion de exploit.
+				if (key == VK_INSERT) continue;
+				// Unico bloqueo: el click IZQUIERDO sobre el badge o justo
+				// tras empezar (0.4s) — asi el click que abre la captura
+				// no se asigna a si mismo. El resto de botones del mouse
+				// (derecho, rueda, 4 y 5) se capturan SIEMPRE, incluso con
+				// el cursor sobre el badge.
+				if (key == VK_LBUTTON && (hovBadge || now - capT < 0.4f)) continue;
 				if (GetAsyncKeyState(key) & 0x8000) {
+					// Condicion anti-duplicado: la tecla se limpia de TODAS
+					// las otras funciones para que nunca haya dos binds con
+					// la misma tecla (eso hacia que se activaran juntas).
 					*v = key;
+					ClearKeyFromOtherBinds(key, v);
 					capturing[rid] = false;
 					break;
 				}
@@ -701,6 +753,52 @@ static void TriSelector(ImDrawList* dl, const char* id, const char* label, int* 
 	const char* opts[3] = { optA, optB, optC };
 
 	for (int i = 0; i < 3; i++) {
+		ImRect r(b0 + ImVec2(i * (sw + 6), 0), b0 + ImVec2(i * (sw + 6) + sw, h));
+		const bool active = (*v == i);
+		const bool hov = ImGui::IsMouseHoveringRect(r.Min, r.Max);
+		if (hov && !active) dl->AddRectFilled(r.Min, r.Max, IM_COL32(255, 255, 255, 5), 6.0f);
+		dl->AddRectFilled(r.Min, r.Max, active ? ((accent & 0x00FFFFFF) | (30u << 24)) : IM_COL32(20, 24, 22, 255), 6.0f);
+		dl->AddRect(r.Min, r.Max, active ? accent : IM_COL32(60, 70, 64, 255), 6.0f, ImDrawFlags_RoundCornersAll, 1.0f);
+
+		ImGui::PushID(i);
+		ImGuiID tid = ImGui::GetID(id);
+		ImGui::ItemSize(r);
+		if (ImGui::ItemAdd(r, tid)) {
+			bool thov, theld;
+			if (ImGui::ButtonBehavior(r, tid, &thov, &theld, ImGuiButtonFlags_PressedOnClick | ImGuiButtonFlags_NoHoldingActiveId)) {
+				*v = i;
+			}
+		}
+		ImGui::PopID();
+
+		if (Fonts::InterBold12) ImGui::PushFont(Fonts::InterBold12);
+		ImVec2 ts = ImGui::CalcTextSize(opts[i]);
+		dl->AddText(r.Min + ImVec2((r.GetWidth() - ts.x) * 0.5f, (r.GetHeight() - ts.y) * 0.5f), active ? accent : COL_TEXT_DIM, opts[i]);
+		if (Fonts::InterBold12) ImGui::PopFont();
+	}
+
+	ImGui::Dummy(ImVec2(0, h + 34));
+}
+
+// ============================================================================
+// SELECTOR DE 2 OPCIONES (modo de un exploit)
+// ============================================================================
+static void DualSelector(ImDrawList* dl, const char* id, const char* label, int* v,
+    const char* optA, const char* optB, ImU32 accent, float pulse, float width = 0.0f)
+{
+	ImVec2 p = ImGui::GetCursorScreenPos();
+	float w = width > 0.0f ? width : ImGui::GetContentRegionAvail().x;
+
+	if (Fonts::InterSemiBold) ImGui::PushFont(Fonts::InterSemiBold);
+	dl->AddText(p + ImVec2(12, 8), COL_TEXT_MAIN, label);
+	if (Fonts::InterSemiBold) ImGui::PopFont();
+
+	const float h = 30.0f;
+	const float sw = (w - 24 - 6) / 2.0f;
+	const ImVec2 b0(p.x + 12, p.y + 28);
+	const char* opts[2] = { optA, optB };
+
+	for (int i = 0; i < 2; i++) {
 		ImRect r(b0 + ImVec2(i * (sw + 6), 0), b0 + ImVec2(i * (sw + 6) + sw, h));
 		const bool active = (*v == i);
 		const bool hov = ImGui::IsMouseHoveringRect(r.Min, r.Max);
@@ -979,6 +1077,58 @@ static void BoostTab(ImDrawList* dl, float pulse)
 }
 
 // ============================================================================
+// PESTAÑA MISC
+// ============================================================================
+static void MiscTab(ImDrawList* dl, float pulse)
+{
+	(void)dl;
+	float availW = ImGui::GetContentRegionAvail().x;
+	const float colGap = 32.0f;
+	const float colW = (availW - colGap) * 0.5f;
+	const float availH = ImGui::GetContentRegionAvail().y;
+
+	// ==================== COLUMNA IZQUIERDA: GHOST LAG / FAKE LAG ====================
+	ImGui::BeginChild("##MscLeft", ImVec2(colW, availH), false, ImGuiWindowFlags_NoBackground);
+	{
+		ImDrawList* ldl = ImGui::GetWindowDrawList();
+
+		SectionTitle(ldl, "GHOST LAG");
+		RowToggle(ldl, "##MscGh", "Ghost Lag", "El enemigo te ve congelado, tu danas igual",
+			&g_Globals.Exploits.GhostLag, COL_GREEN, pulse);
+		KeyBindRow(ldl, "##MscGhK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.GhostLagKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.GhostLag);
+		SliderRow(ldl, "##MscGhD", "Retardo", "%d ms",
+			&g_Globals.Exploits.GhostLagDelay, 50, 5000, COL_GREEN, pulse);
+
+		SectionTitle(ldl, "FAKE LAG");
+		RowToggle(ldl, "##MscFk", "Fake Lag", "Congela a los enemigos; al desactivar les cuenta el danno",
+			&g_Globals.Exploits.FakeLag, COL_GREEN, pulse);
+		KeyBindRow(ldl, "##MscFkK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.FakeLagKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.FakeLag);
+		SliderRow(ldl, "##MscFkD", "Retencion", "%d ms",
+			&g_Globals.Exploits.FakeLagDelay, 0, 5000, COL_GREEN, pulse);
+	}
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+
+	// ==================== COLUMNA DERECHA: TELEPORT ====================
+	ImGui::BeginChild("##MscRight", ImVec2(colW, availH), false, ImGuiWindowFlags_NoBackground);
+	{
+		ImDrawList* rdl = ImGui::GetWindowDrawList();
+
+		SectionTitle(rdl, "TELEPORT");
+		RowToggle(rdl, "##MscTp", "Teleport", "Te ven congelado en A; al desactivar solo te ven en B (no vuelve)",
+			&g_Globals.Exploits.TeleportLag, COL_GREEN, pulse);
+		KeyBindRow(rdl, "##MscTpK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.TeleportLagKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.TeleportLag);
+		DualSelector(rdl, "##MscTpM", "Modo", &g_Globals.Exploits.TeleportLagMode,
+			"SOLO SALIENTE", "AMBOS SENTIDOS", COL_GREEN, pulse);
+	}
+	ImGui::EndChild();
+}
+
+// ============================================================================
 // PESTAÑA EXPLOITS
 // ============================================================================
 static void AimbotTab(ImDrawList* dl, float pulse)
@@ -1026,6 +1176,8 @@ static void AimbotTab(ImDrawList* dl, float pulse)
 			&g_Globals.Silent.Enabled, pulse, colW);
 		RowToggle(mdl, "##AimSi", "Silent Aim", "Activo manteniendo el click izquierdo",
 			&g_Globals.Silent.Enabled, COL_GREEN, pulse);
+		RowToggle(mdl, "##AimSiV", "Solo Visibles", "Apuntar solo a entidades visibles",
+			&g_Globals.Silent.OnlyVisible, COL_GREEN, pulse);
 		BoneSelector(mdl, "##AimSiB", "TARGET (BONE)", &g_Globals.Silent.TargetBone, COL_GREEN, pulse);
 		SliderRow(mdl, "##AimSiSpd", "Velocidad de Bala", "%.0f m/s",
 			&g_Globals.Silent.BulletSpeed, 200.0f, 2000.0f, COL_GREEN, pulse);
@@ -1141,10 +1293,44 @@ static void ExploitsTab(ImDrawList* dl, float pulse)
 			&g_Globals.Exploits.NoRecoil, COL_GREEN, pulse);
 		RowToggle(ldl, "##ExNl", "Sin Recarga", "No necesitas recargar el arma",
 			&g_Globals.Exploits.NoReload, COL_GREEN, pulse);
+		RowToggle(ldl, "##ExUa", "Municion Infinita", "Nunca gastas municion",
+			&g_Globals.Exploits.UnlimitedAmmo, COL_GREEN, pulse);
+		KeyBindRow(ldl, "##ExUaK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.UnlimitedAmmoKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.UnlimitedAmmo);
 		RowToggle(ldl, "##ExSh", "Speed Hack", "Corre mas rapido",
 			&g_Globals.Exploits.SpeedHack, COL_GREEN, pulse);
 		SliderRow(ldl, "##ExShM", "Velocidad carrera", "%.2fx",
 			&g_Globals.Exploits.SpeedHackMultiplier, 1.0f, 2.0f, COL_GREEN, pulse);
+		RowToggle(ldl, "##ExJmp", "Jump Hack", "Salto mucho mas alto",
+			&g_Globals.Exploits.JumpHack, COL_GREEN, pulse);
+		KeyBindRow(ldl, "##ExJmpK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.JumpHackKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.JumpHack);
+		SliderRow(ldl, "##ExJmpM", "Altura salto", "%.1fx",
+			&g_Globals.Exploits.JumpHeightMultiplier, 1.0f, 5.0f, COL_GREEN, pulse);
+		RowToggle(ldl, "##ExVsn", "Vision Hack", "Ajusta el FOV de la camara",
+			&g_Globals.Exploits.VisionHack, COL_GREEN, pulse);
+		KeyBindRow(ldl, "##ExVsnK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.VisionHackKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.VisionHack);
+		SliderRow(ldl, "##ExVsnF", "FOV vision", "%.1f",
+			&g_Globals.Exploits.VisionSlider, 0.0f, 10.0f, COL_GREEN, pulse);
+		RowToggle(ldl, "##ExFf", "Caida Rapida", "Cae al piso mucho mas rapido",
+			&g_Globals.Exploits.FastFall, COL_GREEN, pulse);
+		KeyBindRow(ldl, "##ExFfK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.FastFallKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.FastFall);
+		SliderRow(ldl, "##ExFfS", "Velocidad caida", "%.1f",
+			&g_Globals.Exploits.FastFallSpeed, 1.0f, 50.0f, COL_GREEN, pulse);
+		RowToggle(ldl, "##ExSp", "Spin Bot", "Gira TU personaje sobre su eje vertical",
+			&g_Globals.Exploits.SpinBot, COL_GREEN, pulse);
+		KeyBindRow(ldl, "##ExSpK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.SpinBotKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.SpinBot);
+		SliderRow(ldl, "##ExSpS", "Velocidad de giro", "%.0f deg/s",
+			&g_Globals.Exploits.SpinBotSpeed, 30.0f, 1080.0f, COL_GREEN, pulse);
+		RowToggle(ldl, "##ExTw", "Tp Wall", "Funcion independiente. Un clic = 1 paso (se desactiva solo)",
+			&g_Globals.Exploits.TpWall, COL_GREEN, pulse);
+		KeyBindRow(ldl, "##ExTwK", "Tecla (paso)", "Cada pulsacion = activa, 1 paso, se desactiva solo",
+			&g_Globals.Exploits.TpWallKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.TpWall);
+		SliderRow(ldl, "##ExTwD", "Distancia por paso", "%.1f m",
+			&g_Globals.Exploits.TpWallDistance, 0.1f, 10.0f, COL_GREEN, pulse);
 	}
 	ImGui::EndChild();
 
@@ -1187,16 +1373,16 @@ static void ExploitsTab(ImDrawList* dl, float pulse)
 			&g_Globals.Exploits.PullDis, 10.0f, 300.0f, COL_GREEN, pulse);
 		SliderRow(rdl, "##ExPpF", "FOV", "%0.0f px",
 			&g_Globals.Exploits.PullFov, 30.0f, 300.0f, COL_GREEN, pulse);
-		RowToggle(rdl, "##ExDp", "Down Player", "Baja 0.45m al enemigo al disparar",
-			&g_Globals.Exploits.DownPlayer, COL_GREEN, pulse);
-		KeyBindRow(rdl, "##ExDpK", "Tecla (mantener)", "Manten pulsada mientras disparas",
-			&g_Globals.Exploits.DownPlayerBind, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.DownPlayer);
 		RowToggle(rdl, "##ExTp", "Teleport", "Clava tu posicion en la del enemigo mas cercano",
 			&g_Globals.Exploits.Teleport, COL_GREEN, pulse);
 		KeyBindRow(rdl, "##ExTpK", "Tecla activar", "Alterna clavado / normal",
 			&g_Globals.Exploits.TeleportKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.Teleport);
 		SliderRow(rdl, "##ExTpD", "Distancia", "%0.0f m",
 			&g_Globals.Exploits.TeleportDistance, 10.0f, 300.0f, COL_GREEN, pulse);
+		RowToggle(rdl, "##ExTe", "Turn 180", "Flip 180 vertical: cabeza <-> pies en los enemigos",
+			&g_Globals.Exploits.TurnEnemies, COL_GREEN, pulse);
+		KeyBindRow(rdl, "##ExTeK", "Tecla (toggle)", "Presiona para activar/desactivar",
+			&g_Globals.Exploits.TurnEnemiesKey, COL_GREEN, pulse, 0.0f, &g_Globals.Exploits.TurnEnemies);
 	}
 	ImGui::EndChild();
 }
@@ -1301,7 +1487,7 @@ void Interface::UpdateStyle() {
 }
 
 // ============================================================================
-// RENDERIZADO PRINCIPAL (4 PESTAÑAS: AIMBOT / ESP / EXPLOITS / CONFIG)
+// RENDERIZADO PRINCIPAL (6 PESTAÑAS: AIMBOT / ESP / EXPLOITS / BOOST / CONFIG / MISC)
 // ============================================================================
 
 static void DrawTabContent(ImDrawList* cdl, int tab, float pulse)
@@ -1312,6 +1498,7 @@ static void DrawTabContent(ImDrawList* cdl, int tab, float pulse)
 	case 2: ExploitsTab(cdl, pulse); break;
 	case 3: BoostTab(cdl, pulse); break;
 	case 4: ConfigTab(cdl, pulse); break;
+	case 5: MiscTab(cdl, pulse); break;
 	}
 }
 
@@ -1378,15 +1565,15 @@ void Interface::RenderGui()
 		// ====================================================================
 		// PESTAÑAS
 		// ====================================================================
-		static const char* tabNames[] = { "AIMBOT", "ESP", "EXPLOITS", "BOOST", "CONFIG" };
-		static const char* tabIcons[] = { "\uF05B", "\uF06E", "\uF0E7", "\uE059", "\uF013" };
+		static const char* tabNames[] = { "AIMBOT", "ESP", "EXPLOITS", "BOOST", "CONFIG", "MISC" };
+		static const char* tabIcons[] = { "\uF05B", "\uF06E", "\uF0E7", "\uE059", "\uF013", "\uF0C2" };
 		static int curTab = 0;
 		static int targetTab = -1;      // pestana hacia la que se transiciona
 		static int slideDir = 1;        // direccion del deslizamiento (-1 izquierda / +1 derecha)
 		static float tabSlide = 1.0f;   // 0 = inicio de la transicion, 1 = asentada
-		float tabW = (Size.x - 32) / 5.0f;
+		float tabW = (Size.x - 32) / 6.0f;
 
-		for (int i = 0; i < 5; i++) {
+		for (int i = 0; i < 6; i++) {
 			ImVec2 tp = Pos + ImVec2(16 + i * tabW, 52);
 			ImRect r(tp, tp + ImVec2(tabW, 30));
 			bool hov = ImGui::IsMouseHoveringRect(r.Min, r.Max);

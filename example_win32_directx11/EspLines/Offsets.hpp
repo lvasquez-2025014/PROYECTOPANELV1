@@ -60,8 +60,6 @@ public:
     static inline uintptr_t FireComponent = 0x58;
     static inline uintptr_t tangentTheta = 0xC;
 
-    static inline uintptr_t IsFiring = 0x540;
-
     static inline uintptr_t LockedAimingCollider = 0x54;
     static inline uintptr_t HeadCollider = 0x4A4;
     static inline uintptr_t NeckCollider = 0x454; // TODO: Find offset
@@ -83,8 +81,10 @@ public:
     static inline uintptr_t BuffWeaponAmmoClip = 0xD0;
 
     static inline uintptr_t NoReload = 0x99;
+    static inline uintptr_t UnlimitedAmmo = 0xE0; // municion infinita (PlayerAttributes + 0xE0, bool)
     static inline uintptr_t RunSpeedUpScale = 0x1D8; // velocidad de carrera (speed hack)
     static inline uintptr_t NoReload2 = 0x99; // alias de NoReload para WeaponAttributes (LV4)
+    static inline uintptr_t PlayerAttributes_JumpHeightScale = 0xA4; // BuffEcaJumpHeightScale: multiplicador de altura de salto
     static inline uintptr_t GameTimer = 0x10;
     static inline uintptr_t FixedDeltaTime = 0x24;
     static inline uintptr_t Profile_Rank = 0x58;
@@ -97,11 +97,20 @@ public:
     //static inline uintptr_t GhostMode = 0x38; comentado hasta encontrar una solcion 
     static inline uintptr_t PhysxData = 0x139C;
 
+    static inline uintptr_t FallAttributes = 0x404;      // PlayerAttributes (caida rapida)
+    static inline uintptr_t FallSpeedScale = 0x15C;      // velocidad de caida 1
+    static inline uintptr_t FallSpeedScaleTwo = 0x160;   // velocidad de caida 2
+
     // === SILENT AIM ===
+    static inline uintptr_t IsFiring = 0x540;
     static inline uintptr_t LastAimingInfoFromWeapon = 0x978;   // puntero a la info de apuntado (localPlayer)
     static inline uintptr_t StartPosition = 0x38;               // posicion de salida del proyectil (aimingInfo)
     static inline uintptr_t RayDir = 0x2C;                      // direccion del rayo a escribir (aimingInfo)
-
+    //OFFSETS SILENT AIM C#
+    static inline uintptr_t sAim1 = 0x540;
+    static inline uintptr_t sAim2 = 0x978;
+    static inline uintptr_t  sAim3 = 0x38;
+    static inline uintptr_t sAim4 = 0x2C;
     class Bones {
     public:
         static inline uintptr_t Head = 0x458;

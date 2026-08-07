@@ -9,19 +9,86 @@
 #include <EspLines/Exploits/FastSwitch.hpp>
 #include <EspLines/Exploits/NoRecoil.hpp>
 #include <EspLines/Exploits/NoReload.hpp>
+#include <EspLines/Exploits/UnlimitedAmmo.hpp>
 #include <EspLines/Exploits/PullPlayer.hpp>
 #include <EspLines/Exploits/SpeedTimer.hpp>
 #include <EspLines/Exploits/TeleKill.hpp>
 #include <EspLines/Exploits/UnderPlayer.hpp>
 #include <EspLines/Exploits/Fly.hpp>
-#include <EspLines/Exploits/DownPlayer.hpp>
 #include <EspLines/Exploits/Teleport.hpp>
 #include <EspLines/Exploits/WeaponAttributes.hpp>
+#include <EspLines/Exploits/LagManager.hpp>
+#include <EspLines/Exploits/TurnEnemies.hpp>
+#include <EspLines/Exploits/SpinBot.hpp>
+#include <EspLines/Exploits/TpWall.hpp>
 #define NOMINMAX
 #include <Windows.h>
 #undef min
 #include <vector>
 #include <cmath>
+#include <atomic>
+#include <thread>
+#include <chrono>
+#include <intrin.h>
+
+namespace {
+    // ==================================================================
+    // HILO DE ESCRITURA DEL VISION HACK: el juego reescribe el FOV de la
+    // camara cada frame, por eso la escritura por frame no alcanza. Este
+    // hilo escribe el FOV deseado a cadencia fija (~250us, spin QPC).
+    // La direccion virtual la publica Frame() (hilo principal) recien leida.
+    // ==================================================================
+    std::atomic<bool> s_visionRunning{ false };
+    std::atomic<uint32_t> s_visionCamera{ 0 }; // followCamera + 0x44 es el float FOV
+    std::atomic<float> s_visionFov{ 6.0f };
+    std::thread s_visionThread;
+
+    void VisionWorker() {
+        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+
+        LARGE_INTEGER freq;
+        QueryPerformanceFrequency(&freq);
+        const LONGLONG step = freq.QuadPart / 8000; // ~125 us
+
+        while (s_visionRunning) {
+            try {
+                uint32_t cam = s_visionCamera.load(std::memory_order_acquire);
+                if (cam != 0) {
+                    const float fov = s_visionFov.load(std::memory_order_relaxed);
+                    for (int i = 0; i < 16; i++)
+                        Mem.Write<float>(cam + 0x44, fov);
+
+                    LARGE_INTEGER now;
+                    QueryPerformanceCounter(&now);
+                    LONGLONG target = now.QuadPart + step;
+                    do {
+                        QueryPerformanceCounter(&now);
+                        _mm_pause();
+                    } while (now.QuadPart < target && s_visionRunning);
+                }
+                else {
+                    std::this_thread::sleep_for(std::chrono::microseconds(100));
+                }
+            }
+            catch (...) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        }
+    }
+
+    void VisionStart() {
+        if (s_visionRunning) return;
+        s_visionRunning = true;
+        s_visionThread = std::thread(VisionWorker);
+    }
+
+    void VisionStop() {
+        if (!s_visionRunning) return;
+        s_visionRunning = false;
+        if (s_visionThread.joinable())
+            s_visionThread.join();
+    }
+} // namespace
 
 namespace FWork {
 
@@ -61,6 +128,11 @@ void Data::Work() {
         Reset();
     }
 
+    // --- 3b. Teclas toggle de las funciones activas: se procesan SIEMPRE
+    // (incluso en lobby/menu, sin camara valida) para que las teclas
+    // asignadas activen/desactiven su funcion aunque no haya partida ---
+    UpdateExploitKeys();
+
     // --- 4. Obtener el jugador local y configurar la camara ---
     ctx.localPlayer = Mem.Read<uint32_t>(ctx.currentMatch + Offsets::LocalPlayer);
     if (!ctx.localPlayer || !SetupLocalPlayerAndCamera(ctx.currentMatch)) {
@@ -69,9 +141,6 @@ void Data::Work() {
         Mem.Cache.clear();
         return;
     }
-
-    // --- 4b. Teclas toggle de las funciones activas ---
-    UpdateExploitKeys();
 
     // --- 5. Procesar todas las entidades (jugadores) de la partida ---
     ProcessEntities(ctx);
@@ -87,13 +156,17 @@ void Data::Work() {
     NoRecoil::OnFrame(ctx.localPlayer, weaponAddr);
     uint32_t playerAttrs = Mem.Read<uint32_t>(ctx.localPlayer + Offsets::LocalPlayerAttributes);
     NoReload::OnFrame(ctx.localPlayer, playerAttrs);
+    UnlimitedAmmo::OnFrame(ctx.localPlayer, playerAttrs);
     SpeedTimer::Frame();
     TeleKill::Frame();
     UnderPlayer::Frame();
     Fly::Frame();
-    DownPlayer::Frame();
     PullPlayer::Frame();
     Teleport::Frame();
+    LagManager::Frame();
+    TurnEnemies::Frame();
+    SpinBot::Frame();
+    TpWall::Frame();
 
     // --- 5d. SPEED HACK (correr rapido) y MEJORA DE ARMAS (WeaponAttributes) ---
     // Speed hack: multiplica la velocidad de carrera/caida del jugador.
@@ -110,6 +183,73 @@ void Data::Work() {
         Mem.Write<float>(playerAttrs + Offsets::FallingSpeedUpScale, 1.0f);
     }
     s_speedHackPrev = speedHackOn;
+
+    // --- 5c-2. JUMP HACK (salto alto): multiplica la altura del salto.
+    // Al apagarse (o si JumpHack no controla el campo) restaura a 1.0 ---
+    static bool s_jumpHackPrev = false;
+    const bool jumpHackOn = g_Globals.Exploits.JumpHack;
+    if (jumpHackOn && playerAttrs) {
+        const float j = g_Globals.Exploits.JumpHeightMultiplier;
+        Mem.Write<float>(playerAttrs + Offsets::PlayerAttributes_JumpHeightScale, j);
+    }
+    else if (s_jumpHackPrev) {
+        Mem.Write<float>(playerAttrs + Offsets::PlayerAttributes_JumpHeightScale, 1.0f);
+    }
+    s_jumpHackPrev = jumpHackOn;
+
+    // --- 5c-3. VISION HACK (FOV): escribe el FOV deseado en la camara de
+    // seguimiento. Al apagarse se restaura cualquier valor que tuviera. ---
+static bool s_visionPrev = false;
+    static float s_visionOriginal = 0.0f;
+    const bool visionOn = g_Globals.Exploits.VisionHack;
+    if (visionOn) {
+        uint32_t followCamera = 0;
+        if (Mem.Read<uint32_t>(ctx.localPlayer + Offsets::FollowCamera, followCamera) && followCamera != 0) {
+            if (!s_visionPrev) {
+                Mem.Read<float>(followCamera + 0x44, s_visionOriginal);
+                VisionStart();
+            }
+            s_visionCamera.store(followCamera, std::memory_order_release);
+            s_visionFov.store(g_Globals.Exploits.VisionSlider, std::memory_order_relaxed);
+        }
+    }
+    else {
+        // Restaurar el FOV original que se capturo al activarse
+        if (s_visionPrev) {
+            uint32_t followCamera = 0;
+            if (Mem.Read<uint32_t>(ctx.localPlayer + Offsets::FollowCamera, followCamera) && followCamera != 0)
+                Mem.Write<float>(followCamera + 0x44, s_visionOriginal);
+        }
+        VisionStop();
+        s_visionCamera.store(0, std::memory_order_release);
+    }
+    s_visionPrev = visionOn;
+
+    // --- 5c-4. CAIDA RAPIDA: escribe la velocidad de caida en los dos campos
+    // del PlayerAttributes (0x404). Al apagarse restaura los valores previos. ---
+    static bool s_fastFallPrev = false;
+    static float s_fallOrig1 = 0.0f, s_fallOrig2 = 0.0f;
+    const bool fastFallOn = g_Globals.Exploits.FastFall;
+    if (fastFallOn) {
+        uint32_t fallAttrs = 0;
+        if (Mem.Read<uint32_t>(ctx.localPlayer + Offsets::FallAttributes, fallAttrs) && fallAttrs != 0) {
+            if (!s_fastFallPrev) {
+                Mem.Read<float>(fallAttrs + Offsets::FallSpeedScale, s_fallOrig1);
+                Mem.Read<float>(fallAttrs + Offsets::FallSpeedScaleTwo, s_fallOrig2);
+            }
+            const float f = g_Globals.Exploits.FastFallSpeed;
+            Mem.Write<float>(fallAttrs + Offsets::FallSpeedScale, f);
+            Mem.Write<float>(fallAttrs + Offsets::FallSpeedScaleTwo, f);
+        }
+    }
+    else if (s_fastFallPrev) {
+        uint32_t fallAttrs = 0;
+        if (Mem.Read<uint32_t>(ctx.localPlayer + Offsets::FallAttributes, fallAttrs) && fallAttrs != 0) {
+            Mem.Write<float>(fallAttrs + Offsets::FallSpeedScale, s_fallOrig1);
+            Mem.Write<float>(fallAttrs + Offsets::FallSpeedScaleTwo, s_fallOrig2);
+        }
+    }
+    s_fastFallPrev = fastFallOn;
 
     WeaponAttributes::Apply(ctx.localPlayer, g_Globals.Exploits.WeaponLevel,
         g_Globals.Exploits.WeaponAttributes, g_Globals.Exploits.MiniUziSpeed,
@@ -188,8 +328,17 @@ bool Data::SetupLocalPlayerAndCamera(uint32_t currentMatch) {
 // ============================================================================
 static void UpdateExploitKeys() {
     static bool pFs = false, pNr = false, pNl = false, pTk = false;
+    static bool pUa = false;
+    static bool pFl = false, pFr = false, pFr2 = false, pTp = false, pV2 = false;
+    static bool pTe = false, pSp = false, pJmp = false, pVsn = false, pFf = false;
     auto toggle = [](int key, bool& prev, bool& flag) {
-        if (key == 0) return;
+        if (key == 0) {
+            // Sin tecla asignada: reiniciar el estado anterior para que
+            // el siguiente flanco (al reasignar la tecla) cuente como
+            // pulso nuevo y no quede "comido" por un prev stale.
+            prev = false;
+            return;
+        }
         bool down = (GetAsyncKeyState(key) & 0x8000) != 0;
         if (down && !prev) flag = !flag;
         prev = down;
@@ -197,7 +346,16 @@ static void UpdateExploitKeys() {
     toggle(g_Globals.Exploits.FastSwitchKey, pFs, g_Globals.Exploits.FastSwitch);
     toggle(g_Globals.Exploits.NoRecoilKey, pNr, g_Globals.Exploits.NoRecoil);
     toggle(g_Globals.Exploits.NoReloadKey, pNl, g_Globals.Exploits.NoReload);
+    toggle(g_Globals.Exploits.UnlimitedAmmoKey, pUa, g_Globals.Exploits.UnlimitedAmmo);
     toggle(g_Globals.Exploits.TeleKillKey, pTk, g_Globals.Exploits.TeleKill);
+    toggle(g_Globals.Exploits.GhostLagKey, pFl, g_Globals.Exploits.GhostLag);
+    toggle(g_Globals.Exploits.FakeLagKey, pFr, g_Globals.Exploits.FakeLag);
+    toggle(g_Globals.Exploits.TeleportLagKey, pTp, g_Globals.Exploits.TeleportLag);
+    toggle(g_Globals.Exploits.TurnEnemiesKey, pTe, g_Globals.Exploits.TurnEnemies);
+    toggle(g_Globals.Exploits.SpinBotKey, pSp, g_Globals.Exploits.SpinBot);
+    toggle(g_Globals.Exploits.JumpHackKey, pJmp, g_Globals.Exploits.JumpHack);
+    toggle(g_Globals.Exploits.VisionHackKey, pVsn, g_Globals.Exploits.VisionHack);
+    toggle(g_Globals.Exploits.FastFallKey, pFf, g_Globals.Exploits.FastFall);
 }
 
 // ============================================================================
